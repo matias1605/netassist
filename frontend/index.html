@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10243a">
+  <title>NetAssist | Soporte de redes</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="NetAssist, inicio">
+        <span class="brand-mark" aria-hidden="true">N</span>
+        <span><strong>NetAssist</strong><small>Soporte técnico de redes</small></span>
+      </a>
+      <div class="header-actions">
+        <button id="contact-button" class="button button-contact" type="button">Hablar con un docente/técnico</button>
+        <button id="new-chat-button" class="button button-quiet" type="button">Nueva conversación</button>
+      </div>
+    </header>
+
+    <section class="chat-panel" aria-label="Conversación con NetAssist">
+      <div class="chat-heading">
+        <div class="assistant-avatar" aria-hidden="true">N</div>
+        <div>
+          <h1>Asistente de redes</h1>
+          <p><span class="status-dot"></span> Disponible para Cisco IOS</p>
+        </div>
+      </div>
+
+      <div id="messages" class="messages" aria-live="polite" aria-label="Mensajes">
+        <article class="message message-assistant">
+          <div class="bubble">
+            <p>¡Hola! Soy NetAssist. Cuéntame qué problema tienes y, si puedes, incluye el modelo del equipo Cisco, la versión de IOS y el error exacto.</p>
+            <p>Te guiaré paso a paso. Evitaré repetir las verificaciones que ya hayas probado.</p>
+          </div>
+          <span class="message-meta">NetAssist</span>
+        </article>
+      </div>
+
+      <div id="typing-indicator" class="typing hidden" role="status">
+        <span></span><span></span><span></span><em>NetAssist está escribiendo…</em>
+      </div>
+
+      <form id="chat-form" class="composer">
+        <label class="sr-only" for="message-input">Escribe tu consulta</label>
+        <textarea id="message-input" rows="1" maxlength="12000" placeholder="Describe el error o pega la salida del comando…" required></textarea>
+        <button id="send-button" class="send-button" type="submit" aria-label="Enviar mensaje">
+          <span>Enviar</span><span aria-hidden="true">↑</span>
+        </button>
+        <p class="composer-hint">No compartas contraseñas, claves ni datos de acceso.</p>
+      </form>
+    </section>
+
+    <footer class="page-footer">Las recomendaciones deben verificarse en el equipo y la versión correspondientes.</footer>
+  </main>
+
+  <dialog id="contact-dialog" class="contact-dialog">
+    <div class="dialog-content">
+      <button id="close-contact-button" class="dialog-close" type="button" aria-label="Cerrar">×</button>
+      <div class="assistant-avatar" aria-hidden="true">?</div>
+      <h2>Contactar soporte humano</h2>
+      <p id="contact-details">Cargando información de contacto…</p>
+      <button id="dialog-ok-button" class="button button-contact" type="button">Entendido</button>
+    </div>
+  </dialog>
+  <script src="app.js" defer></script>
+</body>
+</html>

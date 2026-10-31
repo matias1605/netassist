@@ -1,0 +1,72 @@
+PROBLEMA: Sin conectividad entre dos redes (el ping falla)
+SÍNTOMA: Un host no alcanza a otro en una red distinta; "ping" responde "Request timed out" o "Destination host unreachable".
+CAUSA: Puede faltar el gateway en el host, una interfaz del router estar caída, faltar una ruta entre las redes o haber un filtro que descarta el tráfico. Se revisa por capas: primero físico/enlace, luego IP, luego enrutamiento.
+COMANDOS:
+show ip interface brief
+ping 192.168.X.X
+show ip route
+VERIFICACIÓN: "show ip interface brief" debe mostrar las interfaces implicadas en estado up/up; el host origen debe tener gateway correcto; "show ip route" debe incluir una ruta hacia la red destino. Un ping exitoso confirma la conectividad extremo a extremo.
+ADVERTENCIA: Usa direcciones de ejemplo, nunca IPs reales de producción. Verifica primero en el laboratorio o simulador antes de tocar un equipo en servicio.
+---
+PROBLEMA: Interfaz administrativamente caída (administratively down)
+SÍNTOMA: "show ip interface brief" muestra la interfaz como "administratively down" y la línea de protocolo como "down".
+CAUSA: La interfaz fue apagada manualmente con el comando "shutdown" y no se ha vuelto a habilitar.
+COMANDOS:
+configure terminal
+interface gigabitethernet 0/1
+no shutdown
+end
+VERIFICACIÓN: "show ip interface brief" debe mostrar la interfaz en estado up/up tras aplicar "no shutdown". Si sigue en "down/down" (no administrativo), revisa cableado y la interfaz del otro extremo.
+ADVERTENCIA: Habilitar o deshabilitar la interfaz equivocada puede cortar el acceso remoto. Confirma el nombre exacto de la interfaz y respalda la configuración con "copy running-config startup-config" antes de guardar cambios.
+---
+PROBLEMA: Ruta estática faltante
+SÍNTOMA: Un router no alcanza una red remota; "show ip route" no muestra ninguna entrada hacia esa red de destino.
+CAUSA: No existe una ruta (estática ni dinámica) hacia la red remota, por lo que el router descarta los paquetes por falta de camino conocido.
+COMANDOS:
+configure terminal
+ip route 192.168.X.0 255.255.255.0 10.0.X.2
+end
+show ip route static
+VERIFICACIÓN: "show ip route" debe mostrar la nueva ruta con la letra "S" (estática) hacia la red destino. Un ping a un host de esa red debe responder si el resto del camino está bien.
+ADVERTENCIA: El siguiente salto (next-hop) debe ser una dirección alcanzable y correcta; una ruta mal configurada puede desviar tráfico. Prueba primero en el laboratorio y respalda la configuración.
+---
+PROBLEMA: El DNS no resuelve nombres
+SÍNTOMA: "ping" a una IP funciona, pero "ping" o la navegación a un nombre de dominio falla con "Translating... domain server" o no resuelve.
+CAUSA: El dispositivo no tiene servidor DNS configurado, la resolución DNS está deshabilitada, o el servidor DNS indicado no es alcanzable.
+COMANDOS:
+configure terminal
+ip domain-lookup
+ip name-server 8.8.X.X
+end
+show hosts
+VERIFICACIÓN: "show hosts" debe mostrar el servidor de nombres configurado. Un "ping nombre.dominio" debe resolver a una IP. Comprueba también que el servidor DNS sea alcanzable con un ping a su dirección.
+ADVERTENCIA: Usa servidores DNS de ejemplo y no expongas direcciones internas reales. Verifica en el laboratorio antes de cambiar la resolución en un equipo en servicio.
+---
+PROBLEMA: No hay acceso remoto al switch por su interfaz de administración (SVI)
+SÍNTOMA: No se puede hacer ping ni Telnet/SSH a la IP de administración del switch; la gestión remota no responde.
+CAUSA: La VLAN de administración (SVI, interface vlan) puede estar sin IP, apagada, en una VLAN sin puertos activos, o faltar el default-gateway del switch.
+COMANDOS:
+configure terminal
+interface vlan 1
+ip address 192.168.X.2 255.255.255.0
+no shutdown
+exit
+ip default-gateway 192.168.X.1
+end
+VERIFICACIÓN: "show ip interface brief" debe mostrar "Vlan1" (o la VLAN de gestión) en up/up con su IP. "show running-config | include default-gateway" debe mostrar el gateway. Luego prueba el acceso remoto.
+ADVERTENCIA: Cambiar la IP o la VLAN de administración puede dejarte sin acceso remoto; ten a mano el acceso por consola y respalda la configuración antes de aplicar.
+---
+PROBLEMA: Configuración de una VLAN
+SÍNTOMA: Equipos que deberían estar en la misma VLAN no se comunican, o se necesita separar el tráfico en una nueva VLAN.
+CAUSA: La VLAN no existe en el switch o los puertos de acceso no están asignados a la VLAN correcta.
+COMANDOS:
+configure terminal
+vlan 10
+name VENTAS
+exit
+interface gigabitethernet 0/2
+switchport mode access
+switchport access vlan 10
+end
+VERIFICACIÓN: "show vlan brief" debe listar la VLAN 10 con sus puertos asignados. "show interfaces status" debe mostrar el puerto en la VLAN correcta. Los hosts de la misma VLAN deben hacerse ping entre sí.
+ADVERTENCIA: Mover un puerto de VLAN puede desconectar al equipo conectado. Confirma qué puerto configuras y respalda la configuración con "copy running-config startup-config".
