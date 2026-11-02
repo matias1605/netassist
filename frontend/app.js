@@ -71,8 +71,25 @@ function renderMarkdown(text) {
     line
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
       .replace(/`([^`]+)`/g, "<code>$1</code>");
+  const bloqueHtml = (bloque) => {
+    const codigoSeguro = escapeHtml(bloque.code);
+    const idioma = bloque.language ? ` data-language="${escapeHtml(bloque.language)}"` : "";
+    return `<div class="code-block"${idioma}><button class="copy-button" type="button">Copiar</button><pre><code>${codigoSeguro}</code></pre></div>`;
+  };
 
   for (const linea of lineas) {
+    const marcadorSolo = linea.match(/^\s*@@NETASSIST_CODE_(\d+)@@\s*$/);
+    if (marcadorSolo && bloquesCodigo[Number(marcadorSolo[1])]) {
+      cerrarLista();
+      resultado.push(bloqueHtml(bloquesCodigo[Number(marcadorSolo[1])]));
+      continue;
+    }
+    const headingMatch = linea.match(/^\s*#{1,6}\s+(.+?)\s*$/);
+    if (headingMatch) {
+      cerrarLista();
+      resultado.push(`<p><strong>${inline(headingMatch[1])}</strong></p>`);
+      continue;
+    }
     const ulMatch = linea.match(/^\s*[-*]\s+(.+)$/);
     const olMatch = linea.match(/^\s*\d+[.)]\s+(.+)$/);
     if (ulMatch || olMatch) {
@@ -87,20 +104,15 @@ function renderMarkdown(text) {
     }
     cerrarLista();
     if (!linea.trim()) continue;
-    const marcador = linea.match(/^@@NETASSIST_CODE_(\d+)@@$/);
-    if (marcador) {
-      const bloque = bloquesCodigo[Number(marcador[1])];
-      const codigoSeguro = escapeHtml(bloque.code);
-      const idioma = bloque.language ? ` data-language="${escapeHtml(bloque.language)}"` : "";
-      resultado.push(
-        `<div class="code-block"${idioma}><button class="copy-button" type="button">Copiar</button><pre><code>${codigoSeguro}</code></pre></div>`
-      );
-    } else {
-      resultado.push(`<p>${inline(linea)}</p>`);
-    }
+    resultado.push(`<p>${inline(linea)}</p>`);
   }
   cerrarLista();
-  return resultado.join("");
+  // Red de seguridad: reemplaza cualquier marcador que haya quedado suelto (p. ej. pegado a otro texto).
+  return resultado
+    .join("")
+    .replace(/@@NETASSIST_CODE_(\d+)@@/g, (_, i) =>
+      bloquesCodigo[Number(i)] ? bloqueHtml(bloquesCodigo[Number(i)]) : ""
+    );
 }
 
 function appendMessage(role, content, persist = true) {
