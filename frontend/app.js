@@ -10,6 +10,16 @@ const sendButton = document.getElementById("send-button");
 const typingIndicator = document.getElementById("typing-indicator");
 const contactDialog = document.getElementById("contact-dialog");
 const contactDetails = document.getElementById("contact-details");
+const fileInput = document.getElementById("file-input");
+const attachButton = document.getElementById("attach-button");
+const adjuntoPreview = document.getElementById("adjunto-preview");
+const adjuntoMiniatura = document.getElementById("adjunto-miniatura");
+const adjuntoNombre = document.getElementById("adjunto-nombre");
+
+const TIPOS_IMAGEN = ["image/png", "image/jpeg", "image/webp"];
+const MAX_IMAGEN_BYTES = 4 * 1024 * 1024;
+// Imagen pendiente de envío: { mime, data (base64 sin prefijo), nombre, url (data URL para la miniatura) }.
+let imagenAdjunta = null;
 
 let history = loadHistory();
 let supportContact = "Contacta al docente o técnico responsable del laboratorio.";
@@ -50,6 +60,41 @@ function escapeHtml(text) {
   });
 }
 
+function codigoHtml(bloque) {
+  const codigoSeguro = escapeHtml(bloque.code);
+  const idioma = bloque.language ? ` data-language="${escapeHtml(bloque.language)}"` : "";
+  return `<div class="code-block"${idioma}><button class="copy-button" type="button">Copiar</button><pre><code>${codigoSeguro}</code></pre></div>`;
+}
+
+// Los diagramas mermaid quedan pendientes y se dibujan al insertar el mensaje (renderTopologias).
+function topologiaHtml(bloque) {
+  return `<figure class="topologia" data-estado="pendiente"><pre class="topologia-fuente">${escapeHtml(bloque.code)}</pre></figure>`;
+}
+
+let contadorTopologias = 0;
+
+async function renderTopologias(contenedor) {
+  const pendientes = contenedor.querySelectorAll('.topologia[data-estado="pendiente"]');
+  for (const figura of pendientes) {
+    const fuente = figura.querySelector(".topologia-fuente").textContent;
+    figura.dataset.estado = "procesada";
+    if (!window.mermaid) {
+      figura.outerHTML = codigoHtml({ language: "mermaid", code: fuente });
+      continue;
+    }
+    const id = `topologia-${++contadorTopologias}`;
+    try {
+      const { svg } = await window.mermaid.render(id, fuente);
+      figura.innerHTML = `${svg}<figcaption>Topología generada por NetAssist (valores de ejemplo)</figcaption>`;
+    } catch (error) {
+      console.error("No se pudo dibujar la topología:", error);
+      document.getElementById(`d${id}`)?.remove();
+      figura.outerHTML = codigoHtml({ language: "mermaid", code: fuente });
+    }
+  }
+  messagesElement.scrollTop = messagesElement.scrollHeight;
+}
+
 function renderMarkdown(text) {
   const bloquesCodigo = [];
   const conMarcadores = text.replace(/```([^\n`]*)\n?([\s\S]*?)```/g, (_, language, code) => {
@@ -71,11 +116,8 @@ function renderMarkdown(text) {
     line
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
       .replace(/`([^`]+)`/g, "<code>$1</code>");
-  const bloqueHtml = (bloque) => {
-    const codigoSeguro = escapeHtml(bloque.code);
-    const idioma = bloque.language ? ` data-language="${escapeHtml(bloque.language)}"` : "";
-    return `<div class="code-block"${idioma}><button class="copy-button" type="button">Copiar</button><pre><code>${codigoSeguro}</code></pre></div>`;
-  };
+  const bloqueHtml = (bloque) =>
+    bloque.language.toLowerCase() === "mermaid" ? topologiaHtml(bloque) : codigoHtml(bloque);
 
   for (const linea of lineas) {
     const marcadorSolo = linea.match(/^\s*@@NETASSIST_CODE_(\d+)@@\s*$/);
@@ -115,14 +157,22 @@ function renderMarkdown(text) {
     );
 }
 
-function appendMessage(role, content, persist = true) {
+function appendMessage(role, content, persist = true, imagenUrl = null) {
   const article = document.createElement("article");
   article.className = `message message-${role}`;
   const bubble = document.createElement("div");
   bubble.className = "bubble";
   if (role === "assistant") {
     bubble.innerHTML = renderMarkdown(content);
+    renderTopologias(bubble);
   } else {
+    if (imagenUrl) {
+      const imagen = document.createElement("img");
+      imagen.className = "bubble-imagen";
+      imagen.src = imagenUrl;
+      imagen.alt = "Imagen adjunta";
+      bubble.appendChild(imagen);
+    }
     const paragraph = document.createElement("p");
     paragraph.textContent = content;
     bubble.appendChild(paragraph);
@@ -156,20 +206,74 @@ async function fetchContact() {
   }
 }
 
+function quitarAdjunto() {
+  imagenAdjunta = null;
+  fileInput.value = "";
+  adjuntoMiniatura.removeAttribute("src");
+  adjuntoPreview.classList.add("hidden");
+}
+
+function leerComoDataUrl(archivo) {
+  return new Promise((resolve, reject) => {
+    const lector = new FileReader();
+    lector.onload = () => resolve(lector.result);
+    lector.onerror = () => reject(lector.error);
+    lector.readAsDataURL(archivo);
+  });
+}
+
+async function adjuntarArchivo(archivo) {
+  if (!archivo || !TIPOS_IMAGEN.includes(archivo.type)) {
+    appendMessage("assistant", "Solo puedo recibir imágenes PNG, JPG o WEBP.", false);
+    return;
+  }
+  if (archivo.size > MAX_IMAGEN_BYTES) {
+    appendMessage("assistant", "La imagen supera el límite de 4 MB. Recórtala o redúcela e inténtalo de nuevo.", false);
+    return;
+  }
+  try {
+    const url = await leerComoDataUrl(archivo);
+    imagenAdjunta = { mime: archivo.type, data: url.split(",")[1], nombre: archivo.name || "imagen", url };
+    adjuntoMiniatura.src = url;
+    adjuntoNombre.textContent = imagenAdjunta.nombre;
+    adjuntoPreview.classList.remove("hidden");
+    inputElement.focus();
+  } catch (error) {
+    console.error("No se pudo leer la imagen:", error);
+    appendMessage("assistant", "No pude leer la imagen. Inténtalo con otro archivo.", false);
+  }
+}
+
+attachButton.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => adjuntarArchivo(fileInput.files[0]));
+document.getElementById("adjunto-quitar").addEventListener("click", quitarAdjunto);
+inputElement.addEventListener("paste", (event) => {
+  const item = [...event.clipboardData.items].find((elemento) => elemento.type.startsWith("image/"));
+  if (!item) return;
+  event.preventDefault();
+  adjuntarArchivo(item.getAsFile());
+});
+
 chatForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const content = inputElement.value.trim();
-  if (!content || sendButton.disabled) return;
+  const texto = inputElement.value.trim();
+  const imagen = imagenAdjunta;
+  if ((!texto && !imagen) || sendButton.disabled) return;
 
-  if (SENSIBLE_REGEX.test(content)) {
-    appendMessage("user", content);
+  if (SENSIBLE_REGEX.test(texto)) {
+    appendMessage("user", texto);
     inputElement.value = "";
     appendMessage("assistant", SENSIBLE_MENSAJE);
     inputElement.focus();
     return;
   }
 
-  appendMessage("user", content);
+  // El historial guarda solo texto; la nota deja constancia de que hubo una imagen en ese turno.
+  const content = imagen
+    ? `${texto || "Analiza la imagen adjunta."}\n\n[Imagen adjunta: ${imagen.nombre}]`
+    : texto;
+  appendMessage("user", content, true, imagen ? imagen.url : null);
+  quitarAdjunto();
   inputElement.value = "";
   sendButton.disabled = true;
   typingIndicator.classList.remove("hidden");
@@ -179,11 +283,17 @@ chatForm.addEventListener("submit", async (event) => {
     const response = await fetch(`${API_BASE}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: history }),
+      body: JSON.stringify(
+        imagen ? { messages: history, imagen: { mime: imagen.mime, data: imagen.data } } : { messages: history }
+      ),
     });
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.detail || `El servidor respondió HTTP ${response.status}`);
+      if (typeof data.detail === "string") {
+        appendMessage("assistant", data.detail);
+        return;
+      }
+      throw new Error(`El servidor respondió HTTP ${response.status}`);
     }
     if (typeof data.reply !== "string" || !data.reply.trim()) {
       throw new Error("El servidor devolvió una respuesta vacía.");
@@ -208,6 +318,7 @@ chatForm.addEventListener("submit", async (event) => {
 document.getElementById("new-chat-button").addEventListener("click", () => {
   history = [];
   saveHistory();
+  quitarAdjunto();
   messagesElement.replaceChildren();
   appendMessage(
     "assistant",
@@ -238,6 +349,10 @@ messagesElement.addEventListener("click", async (event) => {
     window.setTimeout(() => (button.textContent = "Copiar"), 1400);
   }
 });
+
+if (window.mermaid) {
+  window.mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "neutral" });
+}
 
 restoreHistory();
 fetchContact();

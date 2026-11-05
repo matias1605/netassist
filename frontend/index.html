@@ -43,13 +43,26 @@
         <span></span><span></span><span></span><em>NetAssist está escribiendo…</em>
       </div>
 
+      <div id="adjunto-preview" class="adjunto hidden" aria-live="polite">
+        <img id="adjunto-miniatura" alt="Vista previa de la imagen adjunta">
+        <div class="adjunto-info">
+          <strong id="adjunto-nombre"></strong>
+          <span>Antes de enviar, tapa o recorta contraseñas e IP reales que se vean en la imagen.</span>
+        </div>
+        <button id="adjunto-quitar" class="adjunto-quitar" type="button" aria-label="Quitar imagen">×</button>
+      </div>
+
       <form id="chat-form" class="composer">
+        <input id="file-input" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+        <button id="attach-button" class="attach-button" type="button" aria-label="Adjuntar imagen" title="Adjuntar imagen (PNG, JPG o WEBP, máx. 4 MB). También puedes pegarla con Ctrl+V.">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+        </button>
         <label class="sr-only" for="message-input">Escribe tu consulta</label>
-        <textarea id="message-input" rows="1" maxlength="12000" placeholder="Describe el error o pega la salida del comando…" required></textarea>
+        <textarea id="message-input" rows="1" maxlength="12000" placeholder="Describe el error o pega la salida del comando…"></textarea>
         <button id="send-button" class="send-button" type="submit" aria-label="Enviar mensaje">
           <span>Enviar</span><span aria-hidden="true">↑</span>
         </button>
-        <p class="composer-hint">No compartas contraseñas, claves ni datos de acceso.</p>
+        <p class="composer-hint">No compartas contraseñas, claves ni datos de acceso, tampoco en imágenes.</p>
       </form>
     </section>
 
@@ -65,6 +78,7 @@
       <button id="dialog-ok-button" class="button button-contact" type="button">Entendido</button>
     </div>
   </dialog>
-  <script src="app.js?v=2" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js" defer></script>
+  <script src="app.js?v=4" defer></script>
 </body>
 </html>

@@ -51,6 +51,20 @@ button { cursor: pointer; }
 .code-block code { font-family: Consolas, "Courier New", monospace; font-size: 13px; white-space: pre; }
 .copy-button { position: absolute; top: 8px; right: 8px; padding: 5px 9px; border: 1px solid #43536a; border-radius: 6px; color: #e3edf8; background: #253449; font-size: 11px; }
 .copy-button:hover { background: #354963; }
+.topologia { margin: 12px 0; padding: 14px; overflow-x: auto; border: 1px solid var(--line); border-radius: 9px; background: var(--white); }
+.topologia svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+.topologia figcaption { margin-top: 8px; color: var(--muted); font-size: 11px; text-align: center; }
+.topologia-fuente { margin: 0; color: var(--muted); font-family: Consolas, "Courier New", monospace; font-size: 12px; white-space: pre; }
+.bubble-imagen { display: block; max-width: 100%; max-height: 260px; margin-bottom: 8px; border-radius: 8px; }
+.attach-button { display: grid; place-items: center; flex: 0 0 auto; width: 44px; height: 44px; padding: 0; border: 1px solid #d9e1eb; border-radius: 9px; color: #405268; background: #fafbfd; }
+.attach-button:hover { background: #eef3f9; }
+.attach-button svg { width: 20px; height: 20px; }
+.adjunto { display: flex; align-items: center; gap: 12px; margin: 0 18px 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: #f7f9fc; }
+.adjunto.hidden { display: none; }
+.adjunto img { flex: 0 0 auto; width: 56px; height: 56px; object-fit: cover; border: 1px solid var(--line); border-radius: 6px; }
+.adjunto-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; color: var(--muted); font-size: 12px; }
+.adjunto-info strong { overflow: hidden; color: var(--ink); text-overflow: ellipsis; white-space: nowrap; }
+.adjunto-quitar { margin-left: auto; border: 0; color: #708094; background: transparent; font-size: 22px; }
 .message-meta { margin: 6px 4px 0; color: var(--muted); font-size: 11px; }
 .message-user .message-meta { text-align: right; }
 .typing { display: flex; align-items: center; gap: 4px; min-height: 24px; padding: 0 26px 10px; color: var(--muted); font-size: 12px; }

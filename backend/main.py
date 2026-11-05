@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from .config import FRONTEND_ORIGIN, SUPPORT_CONTACT
 from .llm import MENSAJE_FALLBACK, llamar_llm
 from .rag import RagService, formatear_contexto
-from .seguridad import MENSAJE_DATOS_SENSIBLES, contiene_datos_sensibles
+from .seguridad import MENSAJE_DATOS_SENSIBLES, contiene_datos_sensibles, validar_imagen
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -48,10 +48,18 @@ class Mensaje(BaseModel):
     content: str = Field(min_length=1, max_length=12000)
 
 
+class ImagenAdjunta(BaseModel):
+    """Imagen en base64 que acompaña al último mensaje del usuario."""
+
+    mime: Literal["image/png", "image/jpeg", "image/webp"]
+    data: str = Field(min_length=1, max_length=5_600_000)
+
+
 class SolicitudChat(BaseModel):
     """Historial completo de la conversación del cliente."""
 
     messages: list[Mensaje] = Field(min_length=1)
+    imagen: ImagenAdjunta | None = None
 
 
 class RespuestaChat(BaseModel):
@@ -103,6 +111,14 @@ async def chat(solicitud: SolicitudChat, request: Request) -> RespuestaChat:
     if contiene_datos_sensibles(solicitud.messages[-1].content):
         return RespuestaChat(reply=MENSAJE_DATOS_SENSIBLES, contact=SUPPORT_CONTACT)
 
+    imagen = None
+    if solicitud.imagen is not None:
+        try:
+            validar_imagen(solicitud.imagen.mime, solicitud.imagen.data)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        imagen = solicitud.imagen.model_dump()
+
     mensajes = [mensaje.model_dump() for mensaje in solicitud.messages]
     try:
         if request.app.state.rag_error is not None:
@@ -112,7 +128,7 @@ async def chat(solicitud: SolicitudChat, request: Request) -> RespuestaChat:
         )
         fragmentos = rag_service.buscar(consulta)
         contexto = formatear_contexto(fragmentos)
-        respuesta = await llamar_llm(mensajes, contexto)
+        respuesta = await llamar_llm(mensajes, contexto, imagen)
         return RespuestaChat(reply=respuesta, contact=SUPPORT_CONTACT)
     except Exception as error:
         logger.exception("No se pudo completar la solicitud de chat.")
