@@ -85,7 +85,7 @@ async function renderTopologias(contenedor) {
     const id = `topologia-${++contadorTopologias}`;
     try {
       const { svg } = await window.mermaid.render(id, fuente);
-      figura.innerHTML = `${svg}<figcaption>Topología generada por NetAssist (valores de ejemplo)</figcaption>`;
+      figura.innerHTML = `${svg}<figcaption>Topología generada por NetAssist</figcaption>`;
     } catch (error) {
       console.error("No se pudo dibujar la topología:", error);
       document.getElementById(`d${id}`)?.remove();
@@ -261,9 +261,10 @@ chatForm.addEventListener("submit", async (event) => {
   if ((!texto && !imagen) || sendButton.disabled) return;
 
   if (SENSIBLE_REGEX.test(texto)) {
-    appendMessage("user", texto);
+    // No se guarda en el historial: si no, el texto bloqueado viajaría al modelo en la siguiente consulta.
+    appendMessage("user", texto, false);
     inputElement.value = "";
-    appendMessage("assistant", SENSIBLE_MENSAJE);
+    appendMessage("assistant", SENSIBLE_MENSAJE, false);
     inputElement.focus();
     return;
   }
