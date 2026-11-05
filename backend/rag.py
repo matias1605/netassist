@@ -149,6 +149,23 @@ class RagService:
             )
         return relevantes
 
+    def buscar_con_imagen(self, consulta: str, maximo: int = 8) -> list[dict[str, str | float]]:
+        """Con una imagen el texto no describe el problema: completa con más fichas, hasta `maximo`."""
+        relevantes = self.buscar(consulta)
+        if self.coleccion is None or len(relevantes) >= maximo:
+            return relevantes[:maximo]
+        vistos = {fragmento["texto"] for fragmento in relevantes}
+        todos = self.coleccion.get(include=["documents", "metadatas"])
+        for documento, metadata in zip(todos.get("documents") or [], todos.get("metadatas") or []):
+            if len(relevantes) >= maximo:
+                break
+            if documento is None or documento in vistos:
+                continue
+            vistos.add(documento)
+            archivo = str((metadata or {}).get("archivo", "manual sin nombre"))
+            relevantes.append({"texto": str(documento), "archivo": archivo, "distancia": 0.0})
+        return relevantes
+
 
 def formatear_contexto(fragmentos: list[dict[str, str | float]]) -> str:
     """Prepara fragmentos y referencias para incluirlos en el prompt."""

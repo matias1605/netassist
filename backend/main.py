@@ -126,7 +126,9 @@ async def chat(solicitud: SolicitudChat, request: Request) -> RespuestaChat:
         consulta = next(
             mensaje.content for mensaje in reversed(solicitud.messages) if mensaje.role == "user"
         )
-        fragmentos = rag_service.buscar(consulta)
+        fragmentos = (
+            rag_service.buscar_con_imagen(consulta) if imagen else rag_service.buscar(consulta)
+        )
         contexto = formatear_contexto(fragmentos)
         respuesta = await llamar_llm(mensajes, contexto, imagen)
         return RespuestaChat(reply=respuesta, contact=SUPPORT_CONTACT)
