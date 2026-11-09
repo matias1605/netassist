@@ -67,8 +67,7 @@ async def _llamar_gemini(
     async with httpx.AsyncClient(timeout=timeout) as cliente:
         respuesta = await cliente.post(
             url,
-            params={"key": GEMINI_API_KEY},
-            headers={"content-type": "application/json"},
+            headers={"content-type": "application/json", "x-goog-api-key": GEMINI_API_KEY},
             json={
                 "systemInstruction": {"parts": [{"text": system_prompt}]},
                 "contents": contenido,
@@ -139,22 +138,30 @@ async def llamar_llm(
     mensajes: list[dict[str, str]], contexto_rag: str, imagen: dict[str, str] | None = None
 ) -> str:
     """Prueba Gemini primero, pasa a Groq ante un error y siempre devuelve texto."""
-    _validar_configuracion()
-    system_prompt = construir_prompt(contexto_rag, SUPPORT_CONTACT)
+    from .seguridad import validar_entrada, contiene_datos_sensibles, MENSAJE_DATOS_SENSIBLES
+    validar_entrada({"mensajes": mensajes, "imagen": imagen})
+    if any(contiene_datos_sensibles(m["content"]) for m in mensajes) or contiene_datos_sensibles(contexto_rag):
+        return MENSAJE_DATOS_SENSIBLES
+    return await generar_con_respaldo(mensajes, construir_prompt(contexto_rag, SUPPORT_CONTACT), imagen)
 
-    try:
-        return await _llamar_gemini(mensajes, system_prompt, imagen)
-    except (httpx.HTTPError, ValueError, RuntimeError) as error:
-        logger.warning(
-            "Gemini no pudo responder; se intentará Groq. Tipo de error: %s",
-            type(error).__name__,
-        )
 
-    try:
-        return await _llamar_groq(mensajes, system_prompt, imagen)
-    except (httpx.HTTPError, ValueError, RuntimeError) as error:
-        logger.error(
-            "Gemini y Groq no pudieron responder. Tipo de error: %s",
-            type(error).__name__,
-        )
-        return MENSAJE_FALLBACK
+async def generar_con_respaldo(mensajes, system_prompt, imagen=None) -> str:
+    """Única política de respaldo; no registra contenido ni excepciones con URLs."""
+    from time import monotonic
+    from .seguridad import validar_entrada, contiene_datos_sensibles, MENSAJE_DATOS_SENSIBLES
+    validar_entrada({"mensajes": mensajes, "imagen": imagen})
+    if any(contiene_datos_sensibles(m["content"]) for m in mensajes) or contiene_datos_sensibles(system_prompt):
+        return MENSAJE_DATOS_SENSIBLES
+    for proveedor, llamada in (("gemini", _llamar_gemini), ("groq", _llamar_groq)):
+        inicio = monotonic()
+        try:
+            texto = await llamada(mensajes, system_prompt, imagen)
+            if not isinstance(texto, str) or not texto.strip():
+                raise ValueError("Respuesta vacía")
+            logger.info("proveedor=%s resultado=ok latencia_ms=%.0f contingencia=%s", proveedor, (monotonic()-inicio)*1000, proveedor == "groq")
+            if proveedor == "groq" and imagen:
+                return "No pude analizar la imagen; esta respuesta usa solo el texto. Transcribe la salida sin datos reales.\n\n" + texto
+            return texto
+        except Exception as error:
+            logger.warning("proveedor=%s resultado=error tipo=%s latencia_ms=%.0f", proveedor, type(error).__name__, (monotonic()-inicio)*1000)
+    return MENSAJE_FALLBACK

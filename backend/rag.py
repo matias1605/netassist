@@ -1,6 +1,10 @@
 """Carga de manuales, fragmentación, indexado y búsqueda semántica local."""
 
 import logging
+import json
+import os
+from uuid import uuid4
+from filelock import FileLock
 from pathlib import Path
 from typing import Any
 
@@ -67,23 +71,39 @@ class RagService:
         self.cliente: Any | None = None
         self.coleccion: Any | None = None
 
-    def initialize(self) -> dict[str, int]:
-        """Carga el modelo local y reconstruye el índice a partir de /docs."""
+    def initialize(self, reconstruir: bool = False) -> dict[str, int]:
+        """Reutiliza el índice persistente; publica generaciones mediante referencia atómica.
+
+        El bloqueo de archivo coordina API y Streamlit en el mismo almacenamiento.
+        Las generaciones anteriores se conservan para lectores que aún las usan.
+        """
         DOCS_DIR.mkdir(parents=True, exist_ok=True)
         CHROMA_DIR.mkdir(parents=True, exist_ok=True)
-        self.modelo = SentenceTransformer(EMBEDDING_MODEL)
-        self.cliente = chromadb.PersistentClient(path=str(CHROMA_DIR))
+        with FileLock(str(CHROMA_DIR / "reindex.lock"), timeout=1):
+            if self.modelo is None:
+                self.modelo = SentenceTransformer(EMBEDDING_MODEL)
+            if self.cliente is None:
+                self.cliente = chromadb.PersistentClient(path=str(CHROMA_DIR))
+            referencia = CHROMA_DIR / "indice_activo.json"
+            if not reconstruir:
+                if referencia.exists():
+                    datos = json.loads(referencia.read_text(encoding="utf-8"))
+                    coleccion = self.cliente.get_collection(datos["coleccion"])
+                    if coleccion.count() < 1:
+                        raise RuntimeError("El índice activo está vacío.")
+                    self.coleccion = coleccion
+                    return datos["resumen"]
+                # Compatibilidad con el índice anterior sin reconstruirlo al arrancar.
+                try:
+                    anterior = self.cliente.get_collection(COLLECTION_NAME)
+                except Exception:
+                    anterior = None
+                if anterior is not None and anterior.count() > 0:
+                    self.coleccion = anterior
+                    return {"archivos": len(set((m or {}).get("archivo", "") for m in anterior.get(include=["metadatas"])["metadatas"])), "fragmentos": anterior.count()}
+            return self._reconstruir(referencia)
 
-        self.cliente.get_or_create_collection(
-            name=COLLECTION_NAME,
-            metadata={"hnsw:space": "cosine"},
-        )
-        self.cliente.delete_collection(COLLECTION_NAME)
-        self.coleccion = self.cliente.create_collection(
-            name=COLLECTION_NAME,
-            metadata={"hnsw:space": "cosine"},
-        )
-
+    def _reconstruir(self, referencia: Path) -> dict[str, int]:
         archivos = sorted(
             ruta
             for ruta in DOCS_DIR.rglob("*")
@@ -106,14 +126,29 @@ class RagService:
                 )
                 ids.append(f"{archivo.relative_to(DOCS_DIR).as_posix()}-{numero}")
 
-        if documentos:
-            embeddings = self.modelo.encode(documentos, normalize_embeddings=True).tolist()
-            self.coleccion.add(
-                ids=ids,
-                documents=documentos,
-                metadatas=metadatos,
-                embeddings=embeddings,
-            )
+        if not documentos:
+            raise ValueError("No hay fragmentos legibles; se conserva el índice anterior.")
+        embeddings = self.modelo.encode(documentos, normalize_embeddings=True).tolist()
+        nombre = f"{COLLECTION_NAME}_{uuid4().hex}"
+        candidata = self.cliente.create_collection(name=nombre, metadata={"hnsw:space": "cosine"})
+        temporal = referencia.with_name(f"{nombre}.tmp")
+        try:
+            candidata.add(ids=ids, documents=documentos, metadatas=metadatos, embeddings=embeddings)
+            if candidata.count() != len(documentos):
+                raise RuntimeError("La colección nueva está incompleta.")
+            # Verifica también que se puede consultar antes de publicarla.
+            candidata.query(query_embeddings=embeddings[:1], n_results=1, include=["documents"])
+            resumen = {"archivos": len(archivos), "fragmentos": len(documentos)}
+            temporal.write_text(json.dumps({"coleccion": nombre, "resumen": resumen}), encoding="utf-8")
+            os.replace(temporal, referencia)
+        except Exception:
+            temporal.unlink(missing_ok=True)
+            try:
+                self.cliente.delete_collection(nombre)
+            except Exception:
+                logger.warning("No se pudo limpiar una colección candidata.")
+            raise
+        self.coleccion = candidata
 
         logger.info(
             "Índice RAG actualizado: %s archivo(s), %s fragmento(s).",
@@ -150,21 +185,10 @@ class RagService:
         return relevantes
 
     def buscar_con_imagen(self, consulta: str, maximo: int = 8) -> list[dict[str, str | float]]:
-        """Con una imagen el texto no describe el problema: completa con más fichas, hasta `maximo`."""
-        relevantes = self.buscar(consulta)
-        if self.coleccion is None or len(relevantes) >= maximo:
-            return relevantes[:maximo]
-        vistos = {fragmento["texto"] for fragmento in relevantes}
-        todos = self.coleccion.get(include=["documents", "metadatas"])
-        for documento, metadata in zip(todos.get("documents") or [], todos.get("metadatas") or []):
-            if len(relevantes) >= maximo:
-                break
-            if documento is None or documento in vistos:
-                continue
-            vistos.add(documento)
-            archivo = str((metadata or {}).get("archivo", "manual sin nombre"))
-            relevantes.append({"texto": str(documento), "archivo": archivo, "distancia": 0.0})
-        return relevantes
+        """Recupera solo fichas relevantes al texto y contexto confirmado."""
+        # La captura no proporciona una puntuación semántica local. No inventar distancia 0.
+        return self.buscar(consulta)[:maximo]
+
 
 
 def formatear_contexto(fragmentos: list[dict[str, str | float]]) -> str:

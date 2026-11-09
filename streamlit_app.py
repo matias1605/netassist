@@ -64,6 +64,7 @@ def dibujar_mermaid(fuente: str) -> None:
     """Dibuja un diagrama mermaid con la librería oficial desde CDN."""
     # La ventana de la burbuja es angosta: los diagramas horizontales se dibujan en vertical.
     fuente = re.sub(r"^\s*(graph|flowchart)\s+(LR|RL)\b", r"\1 TD", fuente, flags=re.IGNORECASE)
+    # Escapar < impide que contenido generado cierre la etiqueta script.
     components.html(
         f"""
         <style>
@@ -77,9 +78,9 @@ def dibujar_mermaid(fuente: str) -> None:
         <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
         <script>
           mermaid.initialize({{ startOnLoad: false, securityLevel: "strict", theme: "neutral" }});
-          mermaid.render("topologia", {json.dumps(fuente)})
+          mermaid.render("topologia", {json.dumps(fuente).replace("<", chr(92) + "u003c")})
             .then(({{ svg }}) => {{ document.getElementById("diagrama").innerHTML = svg; }})
-            .catch(() => {{ document.getElementById("diagrama").textContent = {json.dumps(fuente)}; }});
+            .catch(() => {{ document.getElementById("diagrama").textContent = {json.dumps(fuente).replace("<", chr(92) + "u003c")}; }});
         </script>
         """,
         height=_altura_diagrama(fuente),
@@ -223,7 +224,7 @@ st.subheader("Antes de pedir ayuda")
 st.markdown(
     "- Describe el síntoma: *«la PC1 no hace ping a la PC2»*, *«la interfaz aparece down»*.\n"
     "- Puedes adjuntar una captura de Packet Tracer (PNG, JPG o WEBP, máx. 4 MB).\n"
-    "- **No escribas IP reales ni contraseñas:** el asistente las bloquea por seguridad.\n"
+    "- **Solo datos ficticios:** usa direcciones privadas o de documentación; elimina credenciales también de las capturas.\n"
     f"- Si el problema persiste, contacta al soporte humano: {SUPPORT_CONTACT}"
 )
 st.caption(f"Base de conocimiento de NetAssist: {resumen['fragmentos']} fichas de Cisco IOS en ChromaDB.")
@@ -278,6 +279,7 @@ if st.session_state.chat_abierto:
                     st.text_area("Datos y solicitud editables", key="borrador_accion", height=160)
                     st.button("Enviar a IA", key="enviar-accion", on_click=enviar_borrador)
                     st.button("Descartar borrador", on_click=preparar_accion, args=("",))
+            captura_revisada = st.checkbox("Revisé la captura: solo contiene datos ficticios del laboratorio y no contiene credenciales.", value=False)
             entrada = st.chat_input(
                 "Describe tu problema de red…",
                 accept_file=True,
@@ -292,6 +294,9 @@ if st.session_state.chat_abierto:
             imagen_bytes = None
 
             if archivo is not None:
+                if not captura_revisada:
+                    st.error("Revisa la captura, elimina datos reales y confirma la casilla antes de enviarla.")
+                    st.stop()
                 imagen_bytes = archivo.getvalue()
                 mime = TIPOS_IMAGEN.get(archivo.name.rsplit(".", 1)[-1].lower(), "")
                 datos = base64.b64encode(imagen_bytes).decode("ascii")
@@ -300,7 +305,7 @@ if st.session_state.chat_abierto:
                 except ValueError as error:
                     st.error(str(error))
                     st.stop()
-                imagen = {"mime": mime, "data": datos}
+                imagen = {"mime": mime, "data": datos, "laboratorio_confirmado": True}
 
             # Solo viajan al modelo los mensajes que no fueron bloqueados.
             historial = [
@@ -318,9 +323,13 @@ if st.session_state.chat_abierto:
                     st.markdown(texto)
                 with st.chat_message("assistant", avatar=AVATAR_BOT):
                     with st.spinner("Consultando las fichas de Cisco IOS…"):
-                        respuesta = asyncio.run(
-                            cadena.ainvoke({"mensajes": historial, "imagen": imagen})
-                        )
+                        try:
+                            respuesta = asyncio.run(
+                                cadena.ainvoke({"mensajes": historial, "imagen": imagen})
+                            )
+                        except ValueError as error:
+                            st.error(str(error))
+                            st.stop()
                     mostrar_respuesta(respuesta)
 
             bloqueado = respuesta == MENSAJE_DATOS_SENSIBLES

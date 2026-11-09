@@ -1,0 +1,48 @@
+test_bloquea_historial (test_fase1.ApiTests.test_bloquea_historial) ... INFO:httpx:HTTP Request: POST http://testserver/chat "HTTP/1.1 200 OK"
+ok
+test_rechaza_limites_y_adjuntos (test_fase1.ApiTests.test_rechaza_limites_y_adjuntos) ... INFO:httpx:HTTP Request: POST http://testserver/chat "HTTP/1.1 422 Unprocessable Entity"
+INFO:httpx:HTTP Request: POST http://testserver/chat "HTTP/1.1 422 Unprocessable Entity"
+INFO:httpx:HTTP Request: POST http://testserver/chat "HTTP/1.1 422 Unprocessable Entity"
+ok
+test_reindex_administracion_y_fallo_no_deshabilita_chat (test_fase1.ApiTests.test_reindex_administracion_y_fallo_no_deshabilita_chat) ... INFO:httpx:HTTP Request: POST http://testserver/reindexar "HTTP/1.1 403 Forbidden"
+ERROR:backend.main:Fall� la reindexaci�n; se conserva el �ndice anterior. tipo=RuntimeError
+INFO:httpx:HTTP Request: POST http://testserver/reindexar "HTTP/1.1 503 Service Unavailable"
+INFO:httpx:HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+ok
+test_historial_bloqueado_en_ambos_roles (test_fase1.CadenaTests.test_historial_bloqueado_en_ambos_roles) ... ok
+test_imagen_respaldo_aviso_garantizado (test_fase1.CadenaTests.test_imagen_respaldo_aviso_garantizado) ... WARNING:backend.llm:proveedor=gemini resultado=error tipo=RuntimeError latencia_ms=0
+INFO:backend.llm:proveedor=groq resultado=ok latencia_ms=0 contingencia=True
+ok
+test_prompt_real_y_corpus_no_bloquean_laboratorio (test_fase1.CadenaTests.test_prompt_real_y_corpus_no_bloquean_laboratorio) ... INFO:backend.llm:proveedor=gemini resultado=ok latencia_ms=0 contingencia=False
+ok
+test_proveedores (test_fase1.CadenaTests.test_proveedores) ... INFO:backend.llm:proveedor=gemini resultado=ok latencia_ms=0 contingencia=False
+WARNING:backend.llm:proveedor=gemini resultado=error tipo=RuntimeError latencia_ms=0
+INFO:backend.llm:proveedor=groq resultado=ok latencia_ms=0 contingencia=True
+WARNING:backend.llm:proveedor=gemini resultado=error tipo=RuntimeError latencia_ms=0
+WARNING:backend.llm:proveedor=groq resultado=error tipo=RuntimeError latencia_ms=0
+WARNING:backend.llm:proveedor=gemini resultado=error tipo=ValueError latencia_ms=0
+INFO:backend.llm:proveedor=groq resultado=ok latencia_ms=0 contingencia=True
+ok
+test_recuperacion_contextual_y_acciones (test_fase1.CadenaTests.test_recuperacion_contextual_y_acciones) ... ok
+test_ruta_alternativa_bloquea_historial (test_fase1.CadenaTests.test_ruta_alternativa_bloquea_historial) ... ok
+test_candidata_incompleta_y_sin_relevancia_visual (test_fase1.IndiceTests.test_candidata_incompleta_y_sin_relevancia_visual) ... INFO:backend.rag:�ndice RAG actualizado: 1 archivo(s), 1 fragmento(s).
+ok
+test_fallos_conservan_indice_y_reinicio (test_fase1.IndiceTests.test_fallos_conservan_indice_y_reinicio) ... INFO:backend.rag:�ndice RAG actualizado: 1 archivo(s), 1 fragmento(s).
+ok
+test_publicacion_y_reuso_sin_embeddings (test_fase1.IndiceTests.test_publicacion_y_reuso_sin_embeddings) ... INFO:backend.rag:�ndice RAG actualizado: 1 archivo(s), 1 fragmento(s).
+INFO:backend.rag:�ndice RAG actualizado: 1 archivo(s), 1 fragmento(s).
+ok
+test_vacio_y_bloqueo_concurrente (test_fase1.IndiceTests.test_vacio_y_bloqueo_concurrente) ... INFO:backend.rag:�ndice RAG actualizado: 1 archivo(s), 1 fragmento(s).
+ok
+test_imagen_decodificada_y_confirmada (test_fase1.SeguridadTests.test_imagen_decodificada_y_confirmada) ... ok
+test_limites (test_fase1.SeguridadTests.test_limites) ... ok
+test_politica_laboratorio (test_fase1.SeguridadTests.test_politica_laboratorio) ... ok
+test_gemini_clave_en_cabecera_y_groq_sin_imagen (test_fase1.TransporteTests.test_gemini_clave_en_cabecera_y_groq_sin_imagen) ... INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/modelo:generateContent "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+ok
+test_log_no_expone_excepcion (test_fase1.TransporteTests.test_log_no_expone_excepcion) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 2.380s
+
+OK

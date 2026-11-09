@@ -13,10 +13,10 @@ from langchain_core.retrievers import BaseRetriever
 from langchain_core.runnables import Runnable, RunnableBranch, RunnableLambda, RunnablePassthrough
 
 from .config import SUPPORT_CONTACT
-from .llm import MENSAJE_FALLBACK, _llamar_gemini, _llamar_groq, _validar_configuracion
+from .llm import generar_con_respaldo
 from .prompts import construir_prompt
 from .rag import RagService, formatear_contexto
-from .seguridad import MENSAJE_DATOS_SENSIBLES, contiene_datos_sensibles
+from .seguridad import MENSAJE_DATOS_SENSIBLES, contiene_datos_sensibles, validar_entrada
 
 
 class FichasRetriever(BaseRetriever):
@@ -46,8 +46,15 @@ def _ultima_consulta(entrada: dict[str, Any]) -> str:
     return next(m["content"] for m in reversed(entrada["mensajes"]) if m["role"] == "user")
 
 
+def _consulta_contextual(entrada: dict[str, Any]) -> str:
+    """Ventana acotada de requisitos y resultados; sin llamada adicional al modelo."""
+    mensajes = entrada["mensajes"]
+    previos = "\n".join(m["content"][-800:] for m in mensajes[:-1][-6:])
+    return f"{previos}\nConsulta actual: {_ultima_consulta(entrada)[-2000:]}"
+
+
 def _tiene_datos_sensibles(entrada: dict[str, Any]) -> bool:
-    return contiene_datos_sensibles(_ultima_consulta(entrada))
+    return any(contiene_datos_sensibles(m["content"]) for m in entrada["mensajes"])
 
 
 def crear_cadena(rag: RagService) -> Runnable:
@@ -57,7 +64,7 @@ def crear_cadena(rag: RagService) -> Runnable:
 
     def recuperar(entrada: dict[str, Any]) -> list[Document]:
         recuperador = recuperador_imagen if entrada.get("imagen") else recuperador_texto
-        return recuperador.invoke(_ultima_consulta(entrada))
+        return recuperador.invoke(_consulta_contextual(entrada))
 
     def armar_prompt(entrada: dict[str, Any]) -> str:
         fragmentos = [
@@ -66,20 +73,10 @@ def crear_cadena(rag: RagService) -> Runnable:
         ]
         return construir_prompt(formatear_contexto(fragmentos), SUPPORT_CONTACT)
 
-    async def generar_gemini(entrada: dict[str, Any]) -> str:
-        _validar_configuracion()
-        return await _llamar_gemini(entrada["mensajes"], entrada["system_prompt"], entrada.get("imagen"))
+    async def generar(entrada: dict[str, Any]) -> str:
+        return await generar_con_respaldo(entrada["mensajes"], entrada["system_prompt"], entrada.get("imagen"))
 
-    async def generar_groq(entrada: dict[str, Any]) -> str:
-        return await _llamar_groq(entrada["mensajes"], entrada["system_prompt"], entrada.get("imagen"))
-
-    async def mensaje_fallback(_: dict[str, Any]) -> str:
-        return MENSAJE_FALLBACK
-
-    # Gemini es el modelo principal; si falla, LangChain pasa a Groq y luego al aviso fijo.
-    generador = RunnableLambda(generar_gemini).with_fallbacks(
-        [RunnableLambda(generar_groq), RunnableLambda(mensaje_fallback)]
-    )
+    generador = RunnableLambda(generar)
 
     cadena_rag = (
         RunnablePassthrough.assign(documentos=RunnableLambda(recuperar))
@@ -88,7 +85,7 @@ def crear_cadena(rag: RagService) -> Runnable:
     )
 
     # Los datos sensibles se bloquean antes de buscar o llamar a cualquier modelo.
-    return RunnableBranch(
+    return RunnableLambda(validar_entrada) | RunnableBranch(
         (RunnableLambda(_tiene_datos_sensibles), RunnableLambda(lambda _: MENSAJE_DATOS_SENSIBLES)),
         cadena_rag,
     )

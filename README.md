@@ -123,7 +123,7 @@ Para reinstalarlas en este entorno sin instalar paquetes globales:
 
 ## Interfaz Streamlit y despliegue
 
-Además de la web en HTML/JS, NetAssist tiene una interfaz en **Streamlit** (`streamlit_app.py`). Muestra una página del laboratorio con el chat como **burbuja flotante** abajo a la derecha: se abre y se cierra con el botón 💬. Las dos usan la misma orquestación con **LangChain** (`backend/cadena.py`): bloqueo de datos sensibles → recuperación de fichas en ChromaDB → Gemini, con Groq como respaldo (`with_fallbacks`).
+Además de la web en HTML/JS, NetAssist tiene una interfaz en **Streamlit** (`streamlit_app.py`). Muestra una página del laboratorio con el chat como **burbuja flotante** abajo a la derecha: se abre y se cierra con el botón 💬. Las dos usan la misma orquestación con **LangChain** (`backend/cadena.py`): bloqueo de datos sensibles → recuperación de fichas en ChromaDB → Gemini, con Groq como respaldo (política compartida de respaldo).
 
 **En local** (con el `.env` configurado):
 
@@ -156,11 +156,29 @@ El frontend persiste el historial en `localStorage` y lo envía completo en cada
 
 ## RAG y relevancia
 
-El backend acepta `.txt` y `.pdf`, genera embeddings localmente e indexa en ChromaDB. En los `.txt` con fichas separadas por una línea `---`, cada ficha se indexa como un fragmento independiente (una ficha, un resultado); el resto del texto y los PDFs se dividen en fragmentos de 500 palabras con 50 de solapamiento. En cada turno consulta un máximo de cuatro fragmentos. `RAG_DISTANCE_THRESHOLD` configura el umbral de distancia coseno para tratar un resultado como relevante; ajústalo si el conjunto de manuales requiere otra calibración. Sin fragmentos relevantes, la instrucción del sistema impide inventar referencias.
+El backend acepta `.txt` y `.pdf`, genera embeddings localmente e indexa en ChromaDB. En los `.txt` con fichas separadas por una línea `---`, cada ficha se indexa como un fragmento independiente (una ficha, un resultado); el resto del texto y los PDFs se dividen en fragmentos de 500 palabras con 50 de solapamiento. En cada turno consulta un máximo de cuatro fragmentos usando el último mensaje y una ventana acotada de los seis turnos anteriores. Las capturas no agregan fichas sin relevancia medida. `RAG_DISTANCE_THRESHOLD` configura el umbral de distancia coseno para tratar un resultado como relevante; ajústalo si el conjunto de manuales requiere otra calibración. Sin fragmentos relevantes, la instrucción del sistema impide inventar referencias.
 
 ## Detección de datos sensibles
 
-Antes de llamar al modelo, el backend revisa el último mensaje del usuario y, si detecta una dirección IP o palabras como «password», «secret» o «contraseña», responde con un aviso y no envía nada al LLM. El frontend hace la misma comprobación para avisar de inmediato. Trabaja siempre con valores de ejemplo (por ejemplo, `192.168.X.1`), nunca con IPs o credenciales reales.
+Ambas interfaces aplican la misma política de laboratorio antes de recuperar fichas o llamar al proveedor: se revisan todos los mensajes, incluidos los del asistente. Se permiten direcciones privadas, loopback, IPv6 local/documentación, IPv4 de documentación y máscaras válidas. Las IP fuera de ese alcance y los valores de credenciales (`password`, `secret`, `token`, `api_key`, etc.) bloquean el envío completo. Preguntas conceptuales como «¿Qué hace enable secret?» están permitidas. Esto es un filtro heurístico, no un detector universal de información personal ni una prueba de que una IP privada sea ficticia.
+
+Usa solo datos ficticios: sustituye localmente los datos reales por ejemplos antes de pegarlos. No se altera automáticamente una evidencia ni se inventan direcciones. Si un turno anterior está bloqueado, corrígelo o inicia una conversación nueva. Las capturas requieren confirmar que se revisaron y eliminaron datos reales y credenciales; el sistema valida el archivo, pero no realiza OCR ni anonimización visual. La confirmación no certifica el contenido.
+
+Límites compartidos: 40 mensajes, 12000 caracteres por mensaje y 48000 en total; se rechaza el exceso sin truncar evidencias. Imágenes PNG/JPEG/WEBP estáticas, decodificables, hasta 4 MB y 16 millones de píxeles. Cuando Groq responde a una consulta con captura se antepone un aviso explícito de que solo usa texto.
+
+## Índice seguro y pruebas de fase 1
+
+Al iniciar se reutiliza el índice vigente. `POST /reindexar` prepara y consulta una colección nueva antes de publicar `backend/chroma_db/indice_activo.json` mediante reemplazo atómico. Si falla lectura, embeddings, escritura o publicación, conserva la generación anterior. Un bloqueo de archivo coordina reconstrucciones locales; FastAPI realiza este trabajo fuera del bucle de atención. Las generaciones anteriores se conservan para lectores activos y aún no tienen limpieza automática; otras instancias abiertas conservan su generación hasta reiniciarse.
+
+Sin `REINDEX_ADMIN_TOKEN`, reindexar solo acepta conexiones de loopback. Para acceso remoto o detrás de un proxy, configura ese secreto y envía la cabecera `X-Admin-Token`; nunca lo incluyas en la interfaz pública.
+
+Regresiones locales (sin proveedores ni descarga de modelos):
+
+```powershell
+.venv/Scripts/python.exe -m unittest discover -s pruebas/automatizadas -v
+```
+
+Ver resultados y límites en `pruebas/verificacion_fase1.md`.
 
 ## Casos de prueba QA
 

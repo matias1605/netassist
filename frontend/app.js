@@ -24,10 +24,7 @@ let imagenAdjunta = null;
 let history = loadHistory();
 let supportContact = "Contacta al docente o técnico responsable del laboratorio.";
 
-// Aviso instantáneo ante posibles datos sensibles; el backend hace la validación autoritativa.
-const SENSIBLE_REGEX = /(\b\d{1,3}(\.\d{1,3}){3}\b|password|secret|contrase)/i;
-const SENSIBLE_MENSAJE =
-  "Detecté posibles datos sensibles (una IP real o una contraseña). Por seguridad, reemplázalos por valores de ejemplo (por ejemplo, 192.168.X.1) y vuelve a enviar tu consulta.";
+// La política autoritativa y compartida se aplica en el servicio.
 
 function loadHistory() {
   try {
@@ -241,6 +238,7 @@ async function loadQuickActions() {
 
 function quitarAdjunto() {
   imagenAdjunta = null;
+  document.getElementById("captura-revisada").checked = false;
   fileInput.value = "";
   adjuntoMiniatura.removeAttribute("src");
   adjuntoPreview.classList.add("hidden");
@@ -293,12 +291,8 @@ chatForm.addEventListener("submit", async (event) => {
   const imagen = imagenAdjunta;
   if ((!texto && !imagen) || sendButton.disabled) return;
 
-  if (SENSIBLE_REGEX.test(texto)) {
-    // No se guarda en el historial: si no, el texto bloqueado viajaría al modelo en la siguiente consulta.
-    appendMessage("user", texto, false);
-    inputElement.value = "";
-    appendMessage("assistant", SENSIBLE_MENSAJE, false);
-    inputElement.focus();
+  if (imagen && !document.getElementById("captura-revisada").checked) {
+    appendMessage("assistant", "Revisa la captura, elimina datos reales y confirma la casilla antes de enviarla.", false);
     return;
   }
 
@@ -318,7 +312,7 @@ chatForm.addEventListener("submit", async (event) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(
-        imagen ? { messages: history, imagen: { mime: imagen.mime, data: imagen.data } } : { messages: history }
+        imagen ? { messages: history, imagen: { mime: imagen.mime, data: imagen.data, laboratorio_confirmado: true } } : { messages: history }
       ),
     });
     const data = await response.json();

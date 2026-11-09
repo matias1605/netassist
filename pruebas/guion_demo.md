@@ -58,21 +58,21 @@ Es la topología de nuestro laboratorio. La captura incluye el recuadro **"Probl
 
 Qué decir en la demo:
 
-- **No pegar el troubleshooting como texto:** tiene IP y se bloquea como dato sensible. Se puede mostrar a propósito: primero pegar el texto (se bloquea) y luego enviar la imagen (funciona).
+- **Usar solo datos ficticios:** el texto admite direcciones privadas y de documentación. Elimina credenciales y datos reales tanto del texto como de la imagen; confirma la revisión de la captura antes de enviarla.
 - Las rutas salen con huecos como `[RED_DESTINO]` porque la captura no muestra la red de cada LAN: **el asistente no inventa datos que no ve** y deja indicado qué completar.
-- La máscara de G0/0 en LIMA la supone; hay que revisarla contra la tabla de direccionamiento.
+- Si falta la máscara de G0/0 en LIMA, el asistente debe pedirla; no aceptar valores supuestos como verificados.
 
 Para usar otros labs de Packet Tracer:
 
 - Incluir en la captura la lista de problemas identificados, o la salida de `show ip interface brief` del equipo con falla.
 - Si se quieren rutas completas, que la tabla de direccionamiento también se vea en la captura.
 - En el texto, **describir el síntoma** (*"la PC1 no hace ping a la PC2"*, *"la interfaz aparece down"*): así el asistente encuentra la ficha correcta.
-- **No escribir IP en el texto** (se bloquean como dato sensible); dejarlas solo en la imagen.
+- **Sustituir datos reales localmente:** no usar las capturas para eludir la política de datos.
 
 ---
 
 ## 3. Recomendaciones
 
 - Grabar un **video de respaldo** con todas las preguntas por si falla el internet.
-- Si una respuesta tarda más de 15 s, Gemini está saturado y responde Groq; se puede seguir. En las preguntas 5 y 6 (imágenes), si dice que no pudo ver la imagen o responde algo genérico, **reenviarla**.
+- El respaldo puede activarse por distintos errores, no solo saturación. Si Groq no pudo ver la captura, transcribir la evidencia con datos ficticios o intentar más tarde; no dar por analizada la imagen.
 - Pulsar **Nueva conversación** antes de cada pregunta con imagen.

@@ -36,7 +36,7 @@ CAUSA: El dispositivo no tiene servidor DNS configurado, la resolución DNS est�
 COMANDOS:
 configure terminal
 ip domain-lookup
-ip name-server 8.8.8.8
+ip name-server 192.0.2.53
 end
 show hosts
 VERIFICACIÓN: "show hosts" debe mostrar el servidor de nombres configurado. Un "ping nombre.dominio" debe resolver a una IP. Comprueba también que el servidor DNS sea alcanzable con un ping a su dirección.

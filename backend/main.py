@@ -1,19 +1,22 @@
 """API FastAPI de NetAssist."""
 
 import logging
+import hmac
+import os
 from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+from starlette.concurrency import run_in_threadpool
 
 from .config import FRONTEND_ORIGIN, SUPPORT_CONTACT
 from .acciones import obtener_acciones
 from .cadena import crear_cadena
 from .llm import MENSAJE_FALLBACK
 from .rag import RagService
-from .seguridad import MENSAJE_DATOS_SENSIBLES, contiene_datos_sensibles, validar_imagen
+from .seguridad import MENSAJE_DATOS_SENSIBLES, contiene_datos_sensibles, validar_imagen, validar_historial
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,11 +29,11 @@ async def lifespan(app: FastAPI):
     """Inicializa el índice al arrancar; deja la API disponible si RAG falla."""
     app.state.rag_error = None
     try:
-        app.state.rag_summary = rag_service.initialize()
+        app.state.rag_summary = await run_in_threadpool(rag_service.initialize)
     except Exception as error:
         app.state.rag_error = str(error)
         app.state.rag_summary = {"archivos": 0, "fragmentos": 0}
-        logger.exception("No se pudo iniciar RAG; el chat responderá con derivación.")
+        logger.error("No se pudo iniciar RAG. tipo=%s", type(error).__name__)
     yield
 
 
@@ -56,13 +59,19 @@ class ImagenAdjunta(BaseModel):
 
     mime: Literal["image/png", "image/jpeg", "image/webp"]
     data: str = Field(min_length=1, max_length=5_600_000)
+    laboratorio_confirmado: bool = False
 
 
 class SolicitudChat(BaseModel):
     """Historial completo de la conversación del cliente."""
 
-    messages: list[Mensaje] = Field(min_length=1)
+    messages: list[Mensaje] = Field(min_length=1, max_length=40)
     imagen: ImagenAdjunta | None = None
+
+    @model_validator(mode="after")
+    def validar_presupuesto(self):
+        validar_historial([m.model_dump() for m in self.messages])
+        return self
 
 
 class RespuestaChat(BaseModel):
@@ -97,14 +106,22 @@ async def acciones() -> list[dict[str, str]]:
 @app.post("/reindexar")
 async def reindexar(request: Request) -> dict[str, int]:
     """Vuelve a leer e indexar los documentos de /docs."""
+    token = os.getenv("REINDEX_ADMIN_TOKEN", "")
+    if token:
+        autorizado = hmac.compare_digest(request.headers.get("X-Admin-Token", ""), token)
+    else:
+        autorizado = request.client is not None and request.client.host in {"127.0.0.1", "::1"}
+    if not autorizado:
+        raise HTTPException(status_code=403, detail="Reindexación reservada a administración local o token de administración.")
     try:
-        resumen = rag_service.initialize()
+        resumen = await run_in_threadpool(rag_service.initialize, reconstruir=True)
         request.app.state.rag_error = None
         request.app.state.rag_summary = resumen
         return resumen
     except Exception as error:
-        request.app.state.rag_error = str(error)
-        logger.exception("Falló la reindexación de documentos.")
+        if rag_service.coleccion is None:
+            request.app.state.rag_error = "Índice no disponible."
+        logger.error("Falló la reindexación; se conserva el índice anterior. tipo=%s", type(error).__name__)
         raise HTTPException(
             status_code=503,
             detail=f"No se pudo reindexar la documentación. Contacta al docente o técnico: {SUPPORT_CONTACT}",
@@ -117,12 +134,14 @@ async def chat(solicitud: SolicitudChat, request: Request) -> RespuestaChat:
     if solicitud.messages[-1].role != "user":
         raise HTTPException(status_code=422, detail="El último mensaje debe ser del usuario.")
 
-    if contiene_datos_sensibles(solicitud.messages[-1].content):
+    if any(contiene_datos_sensibles(m.content) for m in solicitud.messages):
         return RespuestaChat(reply=MENSAJE_DATOS_SENSIBLES, contact=SUPPORT_CONTACT)
 
     imagen = None
     if solicitud.imagen is not None:
         try:
+            if not solicitud.imagen.laboratorio_confirmado:
+                raise ValueError("Confirma que revisaste la captura y eliminaste credenciales y datos reales.")
             validar_imagen(solicitud.imagen.mime, solicitud.imagen.data)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
@@ -135,5 +154,5 @@ async def chat(solicitud: SolicitudChat, request: Request) -> RespuestaChat:
         respuesta = await cadena.ainvoke({"mensajes": mensajes, "imagen": imagen})
         return RespuestaChat(reply=respuesta, contact=SUPPORT_CONTACT)
     except Exception as error:
-        logger.exception("No se pudo completar la solicitud de chat.")
+        logger.error("No se pudo completar el chat. tipo=%s", type(error).__name__)
         return RespuestaChat(reply=MENSAJE_FALLBACK, contact=SUPPORT_CONTACT)
