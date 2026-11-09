@@ -54,7 +54,26 @@ def _cargar_ejemplo():
     _descartar()
 
 
+def _analizar_evidencia(almacen):
+    """Registra las salidas pegadas como evidencia del caso abierto; no ejecuta nada en dispositivos."""
+    caso_id = st.session_state.get("lab_caso_id")
+    st.session_state.lab_diag_aviso = ""
+    try:
+        resultado = almacen.registrar_evidencia(caso_id, st.session_state.get("lab_evidencia", ""))
+    except LookupError:
+        st.session_state.lab_diag_aviso = "Caso no encontrado."
+        return
+    except ValueError as error:
+        st.session_state.lab_diag_aviso = str(error)
+        return
+    st.session_state.lab_diag_omitidos = [o["motivo"] for o in resultado["omitidos"]]
+    if resultado["registradas"]:
+        st.session_state.lab_evidencia = ""
+
+
 def _descartar():
+    st.session_state.lab_diag_omitidos = []
+    st.session_state.lab_diag_aviso = ""
     st.session_state.lab_revision = None
     st.session_state.lab_resultado = None
     st.session_state.lab_confirmado = False
@@ -155,3 +174,21 @@ def mostrar_laboratorio(cadena, mostrar_respuesta, rag=None, almacen=None):
         else:
             st.caption("Sin propuesta para estos datos.")
         st.caption("Comprobación en laboratorio: no realizada. Generar una respuesta no ejecuta comandos ni certifica conectividad.")
+        st.markdown("### 4. Diagnóstico con evidencia")
+        caso_abierto = st.session_state.get("lab_caso_id")
+        if almacen is None or not caso_abierto:
+            st.caption("Genera o reabre un caso para diagnosticarlo con las salidas de tu simulador.")
+        else:
+            st.caption("Ejecuta los comandos en tu simulador y pega las salidas (show vlan brief, show interfaces <puerto> switchport). Se comparan con los datos declarados; no se consulta ningún dispositivo.")
+            st.text_area("Salidas de verificación", max_chars=8000, height=180, key="lab_evidencia")
+            st.button("Analizar salidas", on_click=_analizar_evidencia, args=(almacen,))
+            if st.session_state.get("lab_diag_aviso"):
+                st.error(st.session_state.lab_diag_aviso)
+            for motivo in st.session_state.get("lab_diag_omitidos", []):
+                st.warning("No se registró: " + motivo)
+            try:
+                diagnostico = almacen.obtener_diagnostico(caso_abierto)
+            except LookupError:
+                diagnostico = None
+            if diagnostico and diagnostico["estado"] != "sin_evidencia":
+                mostrar_respuesta(diagnostico["texto"])

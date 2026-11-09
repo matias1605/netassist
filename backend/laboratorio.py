@@ -99,11 +99,11 @@ def preparar_tarea(tarea: TareaLaboratorio) -> dict:
     }
 
 
-async def _fuentes(rag) -> list[str]:
+async def _fuentes(rag, consulta: str = "configurar VLAN y puertos de acceso switchport") -> list[str]:
     if rag is None:
         return []
     try:
-        fragmentos = await asyncio.to_thread(rag.buscar, "configurar VLAN y puertos de acceso switchport")
+        fragmentos = await asyncio.to_thread(rag.buscar, consulta)
     except Exception:
         return []
     return sorted({str(f["archivo"]) for f in fragmentos})

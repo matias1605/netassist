@@ -15,7 +15,7 @@ from .casos import AlmacenCasos, CasoNoEncontrado
 from .config import CASOS_DB_PATH, FRONTEND_ORIGIN, SUPPORT_CONTACT
 from .acciones import obtener_acciones
 from .cadena import crear_cadena
-from .laboratorio import TareaLaboratorio, ejemplo_laboratorio, preparar_tarea, generar_tarea
+from .laboratorio import TareaLaboratorio, _fuentes, ejemplo_laboratorio, preparar_tarea, generar_tarea
 from .llm import MENSAJE_FALLBACK
 from .rag import RagService
 from .seguridad import MENSAJE_DATOS_SENSIBLES, contiene_datos_sensibles, validar_imagen, validar_historial
@@ -167,6 +167,10 @@ class GeneracionLaboratorio(BaseModel):
     caso_id: str | None = Field(default=None, max_length=32)
 
 
+class EvidenciaDiagnostico(BaseModel):
+    salida: str = Field(min_length=1, max_length=8000)
+
+
 class ComprobacionLaboratorio(BaseModel):
     resultado: Literal["correcta", "fallida"]
     salida: str = Field(min_length=1, max_length=8000)
@@ -231,3 +235,39 @@ async def casos_comprobacion(caso_id: str, datos: ComprobacionLaboratorio) -> di
         raise HTTPException(status_code=404, detail=str(error)) from error
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+CONSULTA_DIAGNOSTICO = "verificar VLAN y puertos de acceso show vlan brief show interfaces switchport"
+
+
+@app.get("/casos/{caso_id}/diagnostico")
+async def casos_diagnostico(caso_id: str) -> dict:
+    """Pasos, evidencias y hallazgos del caso. Compara salidas pegadas con lo declarado; no consulta dispositivos."""
+    try:
+        fuentes = await _fuentes(None if getattr(app.state, "rag_error", None) else rag_service, CONSULTA_DIAGNOSTICO)
+        return await run_in_threadpool(almacen.obtener_diagnostico, caso_id, fuentes)
+    except CasoNoEncontrado as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@app.post("/casos/{caso_id}/evidencias")
+async def casos_evidencias(caso_id: str, datos: EvidenciaDiagnostico) -> dict:
+    """Analiza salidas de show pegadas por la persona y las guarda como evidencia del caso."""
+    try:
+        diagnostico = await run_in_threadpool(almacen.registrar_evidencia, caso_id, datos.salida)
+        fuentes = await _fuentes(None if getattr(app.state, "rag_error", None) else rag_service, CONSULTA_DIAGNOSTICO)
+        if fuentes:
+            diagnostico = {**diagnostico, **await run_in_threadpool(almacen.obtener_diagnostico, caso_id, fuentes)}
+        return diagnostico
+    except CasoNoEncontrado as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.get("/casos/{caso_id}/evidencias")
+async def casos_evidencias_listar(caso_id: str) -> list[dict]:
+    try:
+        return await run_in_threadpool(almacen.listar_evidencias, caso_id)
+    except CasoNoEncontrado as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error

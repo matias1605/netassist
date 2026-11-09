@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from streamlit.testing.v1 import AppTest
 
 from backend import main
-from backend.casos import AlmacenCasos, CasoNoEncontrado
+from backend.casos import MIGRACIONES, AlmacenCasos, CasoNoEncontrado
 from backend.laboratorio import TareaLaboratorio, ejemplo_laboratorio, generar_tarea, preparar_tarea
 from backend.validadores import normalizar_puerto
 
@@ -208,7 +208,7 @@ class AlmacenTests(unittest.IsolatedAsyncioTestCase):
 
     def test_esquema_versionado_y_claves_foraneas(self):
         con = sqlite3.connect(self.ruta)
-        self.assertEqual(con.execute("PRAGMA user_version").fetchone()[0], 1)
+        self.assertEqual(con.execute("PRAGMA user_version").fetchone()[0], len(MIGRACIONES))
         con.close()
         AlmacenCasos(self.ruta)  # reabrir no repite la migración
         caso_id = self.almacen.guardar_caso(ejemplo_laboratorio())

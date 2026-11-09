@@ -68,6 +68,17 @@
             <p class="lab-help">Comprobación en laboratorio: no realizada. Generar una respuesta no ejecuta comandos ni certifica conectividad.</p>
             <div id="lab-result" class="bubble hidden"></div>
           </section>
+          <section class="lab-sheet" aria-labelledby="lab-diag-title" aria-live="polite">
+            <h2 id="lab-diag-title">4. Diagnóstico con evidencia</h2>
+            <p id="lab-diag-empty" class="lab-help">Genera o reabre un caso para diagnosticarlo con las salidas de tu simulador.</p>
+            <div id="lab-diag-box" class="hidden">
+              <p class="lab-help">Ejecuta los comandos en tu simulador o laboratorio y pega las salidas (<code>show vlan brief</code>, <code>show interfaces &lt;puerto&gt; switchport</code>). Se comparan con los datos declarados; no se consulta ningún dispositivo.</p>
+              <label class="lab-objective">Salidas de verificación<textarea id="lab-evidence" rows="8" maxlength="8000" spellcheck="false"></textarea></label>
+              <div class="lab-buttons"><button id="lab-diagnose" class="button button-contact" type="button">Analizar salidas</button></div>
+              <p id="lab-diag-status" role="status" class="lab-help"></p>
+              <div id="lab-diag" class="bubble hidden"></div>
+            </div>
+          </section>
         </div>
       </div>
     </section>

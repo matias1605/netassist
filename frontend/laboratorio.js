@@ -85,6 +85,7 @@ async function labLoadExample() {
     data.vlans.forEach(labAddPort);
     labInvalidate();
     labCaseId = null;
+    labResetDiagnosis(null);
     labStatus.textContent = "Ejemplo ficticio cargado. Puedes editarlo antes de revisar.";
   } catch (error) {
     if (!labPorts.children.length) labAddPort();
@@ -136,6 +137,7 @@ labGenerate.addEventListener("click", async () => {
     result.classList.remove("hidden");
     document.getElementById("lab-result-state").textContent = data.estado === "respuesta_generada" ? "Propuesta con explicación de IA · Validada por reglas, pendiente de comprobar en laboratorio" : "Propuesta sin explicación de IA · Revisa el aviso";
     labStatus.textContent = `Caso guardado (${String(data.caso_id).slice(0, 8)}). No se ejecutaron comandos.`;
+    labResetDiagnosis(labCaseId);
     labLoadCases();
   } catch (error) {
     document.getElementById("lab-result-state").textContent = "No se pudo generar una propuesta";
@@ -190,8 +192,56 @@ document.getElementById("lab-reopen").addEventListener("click", async () => {
       document.getElementById("lab-result-state").textContent = `Caso reabierto · ${comprobacion === "no_realizada" ? "pendiente de comprobar en laboratorio" : `comprobación en laboratorio: ${comprobacion}`}`;
     }
     labStatus.textContent = "Caso reabierto. Si editas un dato y generas de nuevo, se actualiza el mismo caso.";
+    labResetDiagnosis(labCaseId);
   } catch (error) { labStatus.textContent = error.message; }
   finally { labSetBusy(false); }
 });
+
+// ----- Fase 4: diagnóstico con evidencia -----
+const labDiag = document.getElementById("lab-diag");
+const labEvidence = document.getElementById("lab-evidence");
+const labDiagStatus = document.getElementById("lab-diag-status");
+
+function labShowDiagnosis(data, omitidos = []) {
+  labDiag.innerHTML = renderMarkdown(data.texto);
+  labDiag.classList.remove("hidden");
+  const motivos = omitidos.map(item => item.motivo);
+  if (motivos.length) {
+    const aviso = document.createElement("p");
+    aviso.textContent = `No se registró: ${motivos.join(" ")}`;
+    labDiag.prepend(aviso);
+  }
+}
+
+function labResetDiagnosis(caseId) {
+  labDiag.replaceChildren(); labDiag.classList.add("hidden");
+  labEvidence.value = ""; labDiagStatus.textContent = "";
+  document.getElementById("lab-diag-box").classList.toggle("hidden", !caseId);
+  document.getElementById("lab-diag-empty").classList.toggle("hidden", !!caseId);
+  if (!caseId) return;
+  labRequestRoot(`casos/${encodeURIComponent(caseId)}/diagnostico`).then(data => {
+    if (labCaseId === caseId && data.estado !== "sin_evidencia") labShowDiagnosis(data);
+  }).catch(() => { /* El diagnóstico es opcional hasta pegar salidas. */ });
+}
+
+document.getElementById("lab-diagnose").addEventListener("click", async () => {
+  const salida = labEvidence.value.trim();
+  if (labBusy || !labCaseId) return;
+  if (!salida) { labDiagStatus.textContent = "Pega primero la salida de un comando de verificación."; return; }
+  labSetBusy(true);
+  labDiagStatus.textContent = "Analizando salidas…";
+  try {
+    const response = await fetch(`${API_BASE}/casos/${encodeURIComponent(labCaseId)}/evidencias`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ salida }) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "No se pudo analizar la salida.");
+    labShowDiagnosis(data, data.omitidos);
+    if (data.registradas.length) labEvidence.value = "";
+    labDiagStatus.textContent = data.registradas.length ? `${data.registradas.length} evidencia(s) registrada(s). No se ejecutaron comandos.` : "No se registró ninguna evidencia nueva.";
+    labLoadCases();
+  } catch (error) { labDiagStatus.textContent = error.message; }
+  finally { labSetBusy(false); }
+});
+
+labResetDiagnosis(null);
 labLoadCases();
 labLoadExample();

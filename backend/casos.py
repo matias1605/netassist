@@ -11,6 +11,7 @@ from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .diagnostico import analizar_bloque, dividir_bloques, esperado_desde_tarea, estado_paso, formatear_diagnostico, pasos_base, resumir
 from .generador import formatear_propuesta
 from .seguridad import MENSAJE_DATOS_SENSIBLES, contiene_datos_sensibles
 
@@ -41,6 +42,25 @@ MIGRACIONES = [
         validacion TEXT NOT NULL, comprobacion TEXT NOT NULL DEFAULT 'no_realizada',
         salida_laboratorio TEXT NOT NULL DEFAULT '', creada TEXT NOT NULL);
     CREATE INDEX idx_propuestas_caso ON propuestas(caso_id);
+    """,
+    # Fase 4: pasos de diagnóstico, evidencias pegadas y observaciones que las referencian.
+    """
+    CREATE TABLE pasos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        caso_id TEXT NOT NULL REFERENCES casos(id) ON DELETE CASCADE,
+        clave TEXT NOT NULL, orden INTEGER NOT NULL, titulo TEXT NOT NULL, comando TEXT NOT NULL,
+        estado TEXT NOT NULL DEFAULT 'pendiente', evidencia_id INTEGER,
+        UNIQUE(caso_id, clave));
+    CREATE TABLE evidencias (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        caso_id TEXT NOT NULL REFERENCES casos(id) ON DELETE CASCADE,
+        clave_paso TEXT NOT NULL, tipo TEXT NOT NULL, salida TEXT NOT NULL, resultado TEXT NOT NULL,
+        vigente INTEGER NOT NULL DEFAULT 1, creada TEXT NOT NULL);
+    CREATE INDEX idx_evidencias_caso ON evidencias(caso_id);
+    CREATE TABLE observaciones (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        evidencia_id INTEGER NOT NULL REFERENCES evidencias(id) ON DELETE CASCADE,
+        severidad TEXT NOT NULL, texto TEXT NOT NULL, correccion TEXT NOT NULL DEFAULT '[]');
     """,
 ]
 
@@ -81,6 +101,7 @@ class AlmacenCasos:
             raise ValueError(MENSAJE_DATOS_SENSIBLES)
         ahora = _ahora()
         with closing(self._conectar()) as con, con:
+            antes = None
             if caso_id is None:
                 caso_id = uuid.uuid4().hex
                 con.execute("INSERT INTO casos(id, nombre, tipo, creado, actualizado) VALUES (?,?,?,?,?)",
@@ -89,6 +110,7 @@ class AlmacenCasos:
                 self._validar_id(caso_id)
                 if not con.execute("SELECT 1 FROM casos WHERE id=?", (caso_id,)).fetchone():
                     raise CasoNoEncontrado("Caso no encontrado.")
+                antes = self._firma_diagnostico(con, caso_id)
                 con.execute("UPDATE casos SET nombre=?, tipo=?, estado='borrador', actualizado=? WHERE id=?",
                             (datos["nombre"], datos["tipo"], ahora, caso_id))
                 for tabla in ("equipos", "conexiones", "requisitos"):
@@ -99,7 +121,17 @@ class AlmacenCasos:
             con.executemany("INSERT INTO conexiones(caso_id, posicion, vlan_id, vlan_nombre, puerto, host) VALUES (?,?,?,?,?,?)",
                             [(caso_id, i, v["id"], v["nombre"], v["puerto"], v["host"]) for i, v in enumerate(datos["vlans"])])
             con.execute("INSERT INTO requisitos(caso_id, texto) VALUES (?,?)", (caso_id, datos["objetivo"]))
+            if antes is not None and antes != self._firma_diagnostico(con, caso_id):
+                # Los datos declarados cambiaron: las evidencias previas dejan de ser vigentes y los pasos se rehacen.
+                con.execute("UPDATE evidencias SET vigente=0 WHERE caso_id=?", (caso_id,))
+                con.execute("DELETE FROM pasos WHERE caso_id=?", (caso_id,))
         return caso_id
+
+    @staticmethod
+    def _firma_diagnostico(con: sqlite3.Connection, caso_id: str) -> list | None:
+        equipo = con.execute("SELECT alias FROM equipos WHERE caso_id=?", (caso_id,)).fetchone()
+        filas = con.execute("SELECT vlan_id, vlan_nombre, puerto, host FROM conexiones WHERE caso_id=? ORDER BY posicion", (caso_id,)).fetchall()
+        return None if equipo is None else [equipo["alias"], [tuple(f) for f in filas]]
 
     def guardar_propuesta(self, caso_id: str, propuesta: dict, explicacion: str = "") -> int:
         self._validar_id(caso_id)
@@ -130,6 +162,100 @@ class AlmacenCasos:
             con.execute("UPDATE propuestas SET comprobacion=?, salida_laboratorio=? WHERE id=?", (resultado, salida, fila["id"]))
             con.execute("UPDATE casos SET estado=?, actualizado=? WHERE id=?",
                         ("comprobado" if resultado == "correcta" else "comprobacion_fallida", _ahora(), caso_id))
+
+    # ----- Fase 4: diagnóstico con evidencia -----
+
+    def _esperado(self, con: sqlite3.Connection, caso_id: str) -> list[dict]:
+        filas = con.execute("SELECT vlan_id AS id, vlan_nombre AS nombre, puerto, host FROM conexiones WHERE caso_id=? ORDER BY posicion", (caso_id,)).fetchall()
+        return esperado_desde_tarea({"vlans": [dict(f) for f in filas]})
+
+    def _asegurar_pasos(self, con: sqlite3.Connection, caso_id: str) -> None:
+        if con.execute("SELECT 1 FROM pasos WHERE caso_id=?", (caso_id,)).fetchone():
+            return
+        for orden, paso in enumerate(pasos_base(self._esperado(con, caso_id))):
+            con.execute("INSERT INTO pasos(caso_id, clave, orden, titulo, comando) VALUES (?,?,?,?,?)",
+                        (caso_id, paso["clave"], orden, paso["titulo"], paso["comando"]))
+
+    def registrar_evidencia(self, caso_id: str, salida: str) -> dict:
+        """Analiza las salidas pegadas, guarda las que corresponden a un paso y devuelve el diagnóstico.
+
+        Un paso ya completado no se repite y la misma salida no se registra dos veces para un paso.
+        Lo omitido se informa en `omitidos` con el motivo."""
+        if not salida.strip() or len(salida) > MAX_SALIDA:
+            raise ValueError(f"Pega la salida de los comandos de verificación (hasta {MAX_SALIDA} caracteres).")
+        if contiene_datos_sensibles(salida):
+            raise ValueError(MENSAJE_DATOS_SENSIBLES)
+        self._validar_id(caso_id)
+        registradas, omitidos = [], []
+        with closing(self._conectar()) as con, con:
+            if not con.execute("SELECT 1 FROM casos WHERE id=?", (caso_id,)).fetchone():
+                raise CasoNoEncontrado("Caso no encontrado.")
+            self._asegurar_pasos(con, caso_id)
+            esperado = self._esperado(con, caso_id)
+            for bloque in dividir_bloques(salida):
+                analisis = analizar_bloque(bloque, esperado)
+                if analisis["clave"] is None:
+                    omitidos.append({"motivo": analisis["observaciones"][0]["texto"], "fragmento": bloque[:80]})
+                    continue
+                paso = con.execute("SELECT * FROM pasos WHERE caso_id=? AND clave=?", (caso_id, analisis["clave"])).fetchone()
+                if paso["estado"] == "completado":
+                    omitidos.append({"motivo": f"El paso «{paso['comando']}» ya está completado con la evidencia E{paso['evidencia_id']}; no se repite.", "fragmento": bloque[:80]})
+                    continue
+                previa = con.execute("SELECT id FROM evidencias WHERE caso_id=? AND clave_paso=? AND vigente=1 AND salida=?", (caso_id, analisis["clave"], bloque)).fetchone()
+                if previa:
+                    omitidos.append({"motivo": f"Esa salida ya se registró como E{previa['id']}. Aplica la corrección o aclara y pega una salida nueva.", "fragmento": bloque[:80]})
+                    continue
+                evidencia = con.execute("INSERT INTO evidencias(caso_id, clave_paso, tipo, salida, resultado, creada) VALUES (?,?,?,?,?,?)",
+                                        (caso_id, analisis["clave"], analisis["tipo"], bloque, analisis["resultado"], _ahora())).lastrowid
+                con.executemany("INSERT INTO observaciones(evidencia_id, severidad, texto, correccion) VALUES (?,?,?,?)",
+                                [(evidencia, o["severidad"], o["texto"], json.dumps(o["correccion"], ensure_ascii=False)) for o in analisis["observaciones"]])
+                con.execute("UPDATE pasos SET estado=?, evidencia_id=? WHERE id=?", (estado_paso(analisis["resultado"]), evidencia, paso["id"]))
+                registradas.append(evidencia)
+            diagnostico = self._leer_diagnostico(con, caso_id)
+            if registradas:
+                nuevo = "diagnostico_coherente" if diagnostico["estado"] == "coherente" else "en_diagnostico"
+                con.execute("UPDATE casos SET estado=?, actualizado=? WHERE id=? AND estado<>'comprobado'", (nuevo, _ahora(), caso_id))
+        return {**diagnostico, "registradas": registradas, "omitidos": omitidos}
+
+    def _leer_diagnostico(self, con: sqlite3.Connection, caso_id: str) -> dict:
+        self._asegurar_pasos(con, caso_id)
+        pasos = []
+        for fila in con.execute("SELECT * FROM pasos WHERE caso_id=? ORDER BY orden", (caso_id,)).fetchall():
+            paso = {"clave": fila["clave"], "titulo": fila["titulo"], "comando": fila["comando"], "estado": fila["estado"], "evidencia": None}
+            if fila["evidencia_id"]:
+                ev = con.execute("SELECT id, creada, resultado FROM evidencias WHERE id=?", (fila["evidencia_id"],)).fetchone()
+                observaciones = [{"severidad": o["severidad"], "texto": o["texto"], "correccion": json.loads(o["correccion"])}
+                                 for o in con.execute("SELECT * FROM observaciones WHERE evidencia_id=? ORDER BY id", (ev["id"],)).fetchall()]
+                paso["evidencia"] = {"id": ev["id"], "creada": ev["creada"], "resultado": ev["resultado"], "observaciones": observaciones}
+            pasos.append(paso)
+        diagnostico = {"caso_id": caso_id, "pasos": pasos, **resumir(pasos)}
+        diagnostico["texto"] = formatear_diagnostico(diagnostico)
+        return diagnostico
+
+    def obtener_diagnostico(self, caso_id: str, fuentes: list[str] | None = None) -> dict:
+        self._validar_id(caso_id)
+        with closing(self._conectar()) as con, con:
+            if not con.execute("SELECT 1 FROM casos WHERE id=?", (caso_id,)).fetchone():
+                raise CasoNoEncontrado("Caso no encontrado.")
+            diagnostico = self._leer_diagnostico(con, caso_id)
+        if fuentes:
+            diagnostico["fuentes"] = fuentes
+            diagnostico["texto"] = formatear_diagnostico(diagnostico)
+        return diagnostico
+
+    def listar_evidencias(self, caso_id: str) -> list[dict]:
+        """Todas las evidencias del caso, vigentes o no, con sus observaciones, para trazabilidad."""
+        self._validar_id(caso_id)
+        with closing(self._conectar()) as con:
+            if not con.execute("SELECT 1 FROM casos WHERE id=?", (caso_id,)).fetchone():
+                raise CasoNoEncontrado("Caso no encontrado.")
+            resultado = []
+            for ev in con.execute("SELECT * FROM evidencias WHERE caso_id=? ORDER BY id", (caso_id,)).fetchall():
+                observaciones = [{"severidad": o["severidad"], "texto": o["texto"]}
+                                 for o in con.execute("SELECT severidad, texto FROM observaciones WHERE evidencia_id=? ORDER BY id", (ev["id"],)).fetchall()]
+                resultado.append({"id": ev["id"], "paso": ev["clave_paso"], "tipo": ev["tipo"], "salida": ev["salida"], "resultado": ev["resultado"],
+                                  "vigente": bool(ev["vigente"]), "creada": ev["creada"], "observaciones": observaciones})
+        return resultado
 
     def listar_casos(self) -> list[dict]:
         with closing(self._conectar()) as con:
