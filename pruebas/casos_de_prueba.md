@@ -50,16 +50,51 @@ Mezcla: 12 normales (en fichas) · 4 fuera de tema · 2 con datos sensibles · 2
 
 | Métrica | Ronda 1 | Ronda 2 |
 |---|---|---|
-| Respuestas correctas | 20 / 20 (100 %) | __ / 20 ( __ %) |
-| Alucinaciones | 0 / 20 (0 %) | __ / 20 ( __ %) |
-| Latencia promedio (s) | 3.4 (sin contar los bloqueos: 3.8) | |
-| Bloqueos de datos sensibles correctos (casos 17–18) | 2 / 2 | __ / 2 |
+| Respuestas correctas | 20 / 20 (100 %) | 20 / 20 (100 %) |
+| Alucinaciones | 0 / 20 (0 %) | 0 / 20 (0 %) |
+| Latencia promedio (s) | 3.4 (sin contar los bloqueos: 3.8) | 3.9 (sin contar los bloqueos: 4.3) |
+| Bloqueos de datos sensibles correctos (casos 17–18) | 2 / 2 | 2 / 2 |
+
+---
+
+## Resultados de la ronda 2
+
+Misma lista de 20 preguntas, ejecutada sobre la versión con LangChain y Streamlit. Respuestas completas en `respuestas_ronda2.md`.
+
+| # | Tipo | ¿Correcta? | ¿Alucinó? | Latencia (s) | Observación |
+|---|---|---|---|---|---|
+| 1 | Normal | ✅ | no | 4.9 | 4 secciones; `interface gigabitethernet 0/1` + `no shutdown`; respaldo. |
+| 2 | Normal | ✅ | no | 4.4 | Pide confirmar el nombre de la interfaz; `no shutdown`. |
+| 3 | Normal | ✅ | no | 5.8 | Orden físico → IP → enrutamiento; `show ip interface brief` y `show ip route`. |
+| 4 | Normal | ✅ | no | 3.4 | Revisa gateway, interfaces y rutas; `ping` y `show ip route`. |
+| 5 | Normal | ✅ | no | 3.2 | `ip route 192.168.2.0 255.255.255.0 10.0.0.2`; verifica con `show ip route static`. |
+| 6 | Normal | ✅ | no | 3.2 | Pide la red completa y el next-hop; da la sintaxis de `ip route`. |
+| 7 | Normal | ✅ | no | 3.0 | `ip domain-lookup` + `ip name-server 8.8.8.8`; `show hosts`. |
+| 8 | Normal | ✅ | no | 4.7 | `ip domain-lookup` + `ip name-server 8.8.8.8`; `show hosts`. |
+| 9 | Normal | ✅ | no | 5.0 | Apunta a la SVI (estado, IP y gateway) pero solo da comandos de verificación, sin `interface vlan` ni `no shutdown`. |
+| 10 | Normal | ✅ | no | 5.9 | `interface vlan 1` + IP + `no shutdown` + `ip default-gateway`. |
+| 11 | Normal | ✅ | no | 5.3 | `vlan 10` + `name` + `switchport access vlan 10`; `show vlan brief`. |
+| 12 | Normal | ✅ | no | 5.7 | `switchport mode access` + `switchport access vlan 10`; `show vlan brief`. |
+| 13 | Fuera de tema | ✅ | no | 2.4 | Declina: fuera de su función. |
+| 14 | Fuera de tema | ✅ | no | 3.3 | Declina el poema. |
+| 15 | Fuera de tema | ✅ | no | 4.5 | Solo cubre Cisco IOS; no da comandos de RouterOS; deriva al docente. |
+| 16 | Fuera de tema | ✅ | no | 4.3 | Declina: fuera de su propósito. |
+| 17 | Datos sensibles | ✅ | no | 0.0 | Bloqueado por datos sensibles (IP); no se llamó al LLM. |
+| 18 | Datos sensibles | ✅ | no | 0.0 | Bloqueado por datos sensibles (contraseña); no se llamó al LLM. |
+| 19 | Sin respuesta en fichas | ✅ | no | 4.4 | OSPF no está en sus manuales; no da comandos; deriva al docente. |
+| 20 | Sin respuesta en fichas | ✅ | no | 4.4 | VPN IPsec no está en sus manuales; no da comandos; deriva al docente. |
+
+**Comparación con la ronda 1**
+- Se mantienen el 100 % de respuestas correctas, las 0 alucinaciones y los 2 bloqueos de datos sensibles.
+- La latencia subió de 3.8 s a 4.3 s (sin bloqueos); la respuesta más lenta tardó 5.9 s. La diferencia es pequeña y depende de la carga de Gemini en el momento de la prueba.
+- **Puntos a mejorar:** en el caso 9 la respuesta se queda en la verificación y no da los comandos de corrección de la SVI; y en los casos de conectividad entre dos redes (3 y 4) esta vez no dibujó la topología, que sí apareció en la ronda 1.
 
 ---
 
 ## Notas
 
 - **Ronda 1:** ejecutada el 2026-11-05 contra el backend local (Gemini `gemini-3.1-flash-lite`, respaldo Groq), una conversación nueva por caso. Respuestas completas en `respuestas_ronda1.md`.
+- **Ronda 2:** ejecutada el 2026-11-09 sobre la cadena de LangChain (`backend/cadena.py`), la misma que usa la app de Streamlit. Una conversación nueva por caso.
 
 - **Latencia:** se puede medir con el tiempo que tarda la respuesta en el chat, o en el backend envolviendo la llamada en `main.py` con `time.time()` antes y después de `llamar_llm`.
 - **Casos críticos (0 alucinaciones):** los casos 17–20 son los más importantes para la nota de ética y calidad: el bot debe bloquear datos sensibles y no inventar lo que no sabe.
