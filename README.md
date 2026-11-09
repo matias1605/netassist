@@ -103,7 +103,7 @@ netassist/
 
 ## Interfaz Streamlit y despliegue
 
-Además de la web en HTML/JS, NetAssist tiene una interfaz en **Streamlit** (`streamlit_app.py`). Las dos usan la misma orquestación con **LangChain** (`backend/cadena.py`): bloqueo de datos sensibles → recuperación de fichas en ChromaDB → Gemini, con Groq como respaldo (`with_fallbacks`).
+Además de la web en HTML/JS, NetAssist tiene una interfaz en **Streamlit** (`streamlit_app.py`). Muestra una página del laboratorio con el chat como **burbuja flotante** abajo a la derecha: se abre y se cierra con el botón 💬. Las dos usan la misma orquestación con **LangChain** (`backend/cadena.py`): bloqueo de datos sensibles → recuperación de fichas en ChromaDB → Gemini, con Groq como respaldo (`with_fallbacks`).
 
 **En local** (con el `.env` configurado):
 

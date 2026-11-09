@@ -13,7 +13,7 @@ import re
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="NetAssist", page_icon="🛠️", layout="centered")
+st.set_page_config(page_title="NetAssist", page_icon="🛠️", layout="wide", initial_sidebar_state="collapsed")
 
 
 def _cargar_secrets() -> None:
@@ -51,15 +51,15 @@ def cargar_asistente():
 
 
 def _altura_diagrama(fuente: str) -> int:
-    """Calcula una altura aproximada: los diagramas horizontales ocupan poco alto."""
-    lineas = [linea for linea in fuente.splitlines()[1:] if linea.strip()]
-    if fuente.lstrip().lower().startswith(("graph lr", "graph rl", "flowchart lr", "flowchart rl")):
-        return min(140 + 22 * max(0, len(lineas) - 4), 420)
-    return min(120 + 70 * len(lineas), 640)
+    """Calcula la altura del diagrama vertical: unos 95 px por cada nivel de equipos."""
+    enlaces = sum(1 for linea in fuente.splitlines() if "--" in linea)
+    return min(100 + 95 * (enlaces + 1), 900)
 
 
 def dibujar_mermaid(fuente: str) -> None:
     """Dibuja un diagrama mermaid con la librería oficial desde CDN."""
+    # La ventana de la burbuja es angosta: los diagramas horizontales se dibujan en vertical.
+    fuente = re.sub(r"^\s*(graph|flowchart)\s+(LR|RL)\b", r"\1 TD", fuente, flags=re.IGNORECASE)
     components.html(
         f"""
         <div id="diagrama" style="display:flex;justify-content:center"></div>
@@ -95,23 +95,54 @@ def nueva_conversacion() -> None:
     st.session_state.mensajes = []
 
 
+def alternar_chat() -> None:
+    st.session_state.chat_abierto = not st.session_state.chat_abierto
+
+
 if "mensajes" not in st.session_state:
     nueva_conversacion()
+if "chat_abierto" not in st.session_state:
+    st.session_state.chat_abierto = False
 
-# --- Barra lateral -----------------------------------------------------------------------
-with st.sidebar:
-    st.title("🛠️ NetAssist")
-    st.caption("Asistente de soporte de redes Cisco IOS · Redes y Conectividad I · USMP · Equipo 04")
-    st.button("Nueva conversación", on_click=nueva_conversacion, use_container_width=True)
-    st.divider()
-    st.markdown(
-        "**Cómo usarlo**\n"
-        "- Describe el síntoma: *«la PC1 no hace ping a la PC2»*.\n"
-        "- Puedes adjuntar una captura de Packet Tracer (PNG, JPG o WEBP, máx. 4 MB).\n"
-        "- No escribas IP reales ni contraseñas: se bloquean por seguridad."
-    )
-    st.divider()
-    st.markdown(f"**Soporte humano:** {SUPPORT_CONTACT}")
+# --- Estilos de la burbuja ---------------------------------------------------------------
+# Los contenedores con key reciben la clase .st-key-<key>; con ella se fijan abajo a la derecha.
+st.html(
+    """
+    <style>
+      [data-testid="stSidebarCollapsedControl"], [data-testid="stSidebar"] { display: none; }
+      .st-key-boton-burbuja {
+        position: fixed; right: 24px; bottom: 24px; z-index: 1001; width: auto !important;
+      }
+      .st-key-boton-burbuja button {
+        width: 64px; height: 64px; border-radius: 50%; border: none;
+        background: #1F4E79; color: #fff; font-size: 28px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, .28);
+      }
+      .st-key-boton-burbuja button:hover { background: #163A5C; color: #fff; }
+      .st-key-boton-burbuja button:focus:not(:active) { color: #fff; border: none; }
+      .st-key-ventana-chat {
+        position: fixed; right: 24px; bottom: 100px; z-index: 1000;
+        width: min(420px, calc(100vw - 32px)) !important;
+        max-height: calc(100vh - 124px); overflow-y: auto;
+        background: #fff; border-radius: 16px; padding: 0 14px 12px;
+        box-shadow: 0 12px 36px rgba(0, 0, 0, .25);
+      }
+      .st-key-cabecera-chat {
+        background: #1F4E79; color: #fff; margin: 0 -14px; padding: 12px 14px;
+        border-radius: 16px 16px 0 0; width: calc(100% + 28px) !important;
+      }
+      .st-key-cabecera-chat p { color: #fff; margin: 0; }
+      .st-key-cabecera-chat button {
+        background: transparent; color: #fff; border: 1px solid rgba(255, 255, 255, .5);
+        padding: 2px 10px; min-height: 0;
+      }
+      @media (max-width: 640px) {
+        .st-key-ventana-chat { right: 16px; bottom: 96px; }
+        .st-key-boton-burbuja { right: 16px; bottom: 16px; }
+      }
+    </style>
+    """
+)
 
 try:
     cadena, resumen = cargar_asistente()
@@ -119,68 +150,111 @@ except Exception:
     st.error(f"No se pudo cargar la base de conocimiento. {SUPPORT_CONTACT}")
     st.stop()
 
-with st.sidebar:
-    st.caption(f"Base de conocimiento: {resumen['fragmentos']} fichas indexadas en ChromaDB.")
-
-# --- Historial ---------------------------------------------------------------------------
-with st.chat_message("assistant"):
-    st.markdown(BIENVENIDA)
-
-for mensaje in st.session_state.mensajes:
-    with st.chat_message(mensaje["role"]):
-        if mensaje.get("imagen"):
-            st.image(mensaje["imagen"], width=320)
-        if mensaje["role"] == "assistant":
-            mostrar_respuesta(mensaje["content"])
-        else:
-            st.markdown(mensaje["content"])
-
-# --- Nuevo mensaje -----------------------------------------------------------------------
-entrada = st.chat_input(
-    "Describe tu problema de red…",
-    accept_file=True,
-    file_type=list(TIPOS_IMAGEN),
+# --- Página de fondo: portal del laboratorio ---------------------------------------------
+st.title("Laboratorio de Redes y Conectividad I")
+st.caption("Portal de prácticas con equipos Cisco IOS · USMP · Equipo 04")
+st.markdown(
+    "Aquí encontrarás las prácticas del laboratorio. Si algo no funciona durante una práctica, "
+    "pulsa la burbuja **💬** de abajo a la derecha y pregúntale a **NetAssist**, el asistente "
+    "de soporte del laboratorio."
 )
 
-if entrada:
-    texto = (entrada.text or "").strip() or "¿Qué ves en esta imagen?"
-    archivo = entrada.files[0] if entrada.files else None
-    imagen = None
-    imagen_bytes = None
+st.subheader("Prácticas")
+practicas = [
+    ("🔌 Conectividad e interfaces", "Direccionamiento IP, interfaces caídas y pruebas con ping."),
+    ("🧭 Rutas estáticas y DNS", "Comunicación entre redes remotas y resolución de nombres."),
+    ("🔀 VLAN y SVI", "Segmentación del switch y acceso remoto de administración."),
+]
+for columna, (titulo, descripcion) in zip(st.columns(3), practicas):
+    with columna.container(border=True):
+        st.markdown(f"**{titulo}**")
+        st.caption(descripcion)
 
-    if archivo is not None:
-        imagen_bytes = archivo.getvalue()
-        mime = TIPOS_IMAGEN.get(archivo.name.rsplit(".", 1)[-1].lower(), "")
-        datos = base64.b64encode(imagen_bytes).decode("ascii")
-        try:
-            validar_imagen(mime, datos)
-        except ValueError as error:
-            st.error(str(error))
-            st.stop()
-        imagen = {"mime": mime, "data": datos}
+st.subheader("Antes de pedir ayuda")
+st.markdown(
+    "- Describe el síntoma: *«la PC1 no hace ping a la PC2»*, *«la interfaz aparece down»*.\n"
+    "- Puedes adjuntar una captura de Packet Tracer (PNG, JPG o WEBP, máx. 4 MB).\n"
+    "- **No escribas IP reales ni contraseñas:** el asistente las bloquea por seguridad.\n"
+    f"- Si el problema persiste, contacta al soporte humano: {SUPPORT_CONTACT}"
+)
+st.caption(f"Base de conocimiento de NetAssist: {resumen['fragmentos']} fichas de Cisco IOS en ChromaDB.")
 
-    with st.chat_message("user"):
-        if imagen_bytes:
-            st.image(imagen_bytes, width=320)
-        st.markdown(texto)
-
-    # Solo viajan al modelo los mensajes que no fueron bloqueados.
-    historial = [
-        {"role": m["role"], "content": m["content"]}
-        for m in st.session_state.mensajes
-        if not m.get("bloqueado")
-    ]
-    historial.append({"role": "user", "content": texto})
-
-    with st.chat_message("assistant"):
-        with st.spinner("Consultando las fichas de Cisco IOS…"):
-            respuesta = asyncio.run(cadena.ainvoke({"mensajes": historial, "imagen": imagen}))
-        mostrar_respuesta(respuesta)
-
-    bloqueado = respuesta == MENSAJE_DATOS_SENSIBLES
-    st.session_state.mensajes.append(
-        {"role": "user", "content": texto, "imagen": imagen_bytes, "bloqueado": bloqueado}
+# --- Botón flotante ----------------------------------------------------------------------
+with st.container(key="boton-burbuja"):
+    st.button(
+        "✕" if st.session_state.chat_abierto else "💬",
+        on_click=alternar_chat,
+        help="Cerrar NetAssist" if st.session_state.chat_abierto else "Abrir NetAssist",
     )
-    st.session_state.mensajes.append(
-        {"role": "assistant", "content": respuesta, "bloqueado": bloqueado}
-    )
+
+# --- Ventana del chat --------------------------------------------------------------------
+if st.session_state.chat_abierto:
+    with st.container(key="ventana-chat"):
+        with st.container(key="cabecera-chat"):
+            izquierda, derecha = st.columns([3, 2], vertical_alignment="center")
+            izquierda.markdown("**🛠️ NetAssist**  \nSoporte de redes Cisco IOS")
+            derecha.button("Nuevo chat", on_click=nueva_conversacion, help="Borra la conversación")
+
+        conversacion = st.container(height=400, border=False)
+        with conversacion:
+            with st.chat_message("assistant"):
+                st.markdown(BIENVENIDA)
+            for mensaje in st.session_state.mensajes:
+                with st.chat_message(mensaje["role"]):
+                    if mensaje.get("imagen"):
+                        st.image(mensaje["imagen"], width=240)
+                    if mensaje["role"] == "assistant":
+                        mostrar_respuesta(mensaje["content"])
+                    else:
+                        st.markdown(mensaje["content"])
+
+        entrada = st.chat_input(
+            "Describe tu problema de red…",
+            accept_file=True,
+            file_type=list(TIPOS_IMAGEN),
+        )
+
+        if entrada:
+            texto = (entrada.text or "").strip() or "¿Qué ves en esta imagen?"
+            archivo = entrada.files[0] if entrada.files else None
+            imagen = None
+            imagen_bytes = None
+
+            if archivo is not None:
+                imagen_bytes = archivo.getvalue()
+                mime = TIPOS_IMAGEN.get(archivo.name.rsplit(".", 1)[-1].lower(), "")
+                datos = base64.b64encode(imagen_bytes).decode("ascii")
+                try:
+                    validar_imagen(mime, datos)
+                except ValueError as error:
+                    st.error(str(error))
+                    st.stop()
+                imagen = {"mime": mime, "data": datos}
+
+            # Solo viajan al modelo los mensajes que no fueron bloqueados.
+            historial = [
+                {"role": m["role"], "content": m["content"]}
+                for m in st.session_state.mensajes
+                if not m.get("bloqueado")
+            ]
+            historial.append({"role": "user", "content": texto})
+
+            with conversacion:
+                with st.chat_message("user"):
+                    if imagen_bytes:
+                        st.image(imagen_bytes, width=240)
+                    st.markdown(texto)
+                with st.chat_message("assistant"):
+                    with st.spinner("Consultando las fichas de Cisco IOS…"):
+                        respuesta = asyncio.run(
+                            cadena.ainvoke({"mensajes": historial, "imagen": imagen})
+                        )
+                    mostrar_respuesta(respuesta)
+
+            bloqueado = respuesta == MENSAJE_DATOS_SENSIBLES
+            st.session_state.mensajes.append(
+                {"role": "user", "content": texto, "imagen": imagen_bytes, "bloqueado": bloqueado}
+            )
+            st.session_state.mensajes.append(
+                {"role": "assistant", "content": respuesta, "bloqueado": bloqueado}
+            )
