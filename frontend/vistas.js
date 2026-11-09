@@ -55,39 +55,11 @@
   });
 
   // ---------- Panel de la práctica: sigue al resto del laboratorio ----------
-  const estado = document.getElementById("lab-result-state");
+  // Al aparecer un nuevo resumen de la sesión, muestra su configuración.
   const resultado = document.getElementById("lab-result");
-  const vacio = document.getElementById("lab-result-empty");
-  const pildora = document.getElementById("practica-estado");
-  const nombre = document.querySelector('#laboratorio-form [name="nombre"]');
-
-  function sincronizar() {
-    const texto = estado.textContent.trim();
-    const hayResultado = !resultado.classList.contains("hidden");
-    estado.classList.toggle("hidden", !texto || /^Sin propuesta/i.test(texto));
-    vacio.classList.toggle("hidden", hayResultado || (!!texto && !/^Sin propuesta/i.test(texto)));
-    const abierta = nombre.value.trim();
-    pildora.textContent = hayResultado ? "Propuesta generada" : (abierta ? "Borrador" : "Sin práctica abierta");
-    pildora.classList.toggle("pill-activa", hayResultado || !!abierta);
-  }
-  const observador = new MutationObserver(sincronizar);
-  observador.observe(estado, { childList: true, characterData: true, subtree: true });
-  observador.observe(resultado, { attributes: true, attributeFilter: ["class"] });
-  nombre.addEventListener("input", sincronizar);
-  document.getElementById("laboratorio-form").addEventListener("change", sincronizar);
-  sincronizar();
-
-  // Al terminar una revisión o una propuesta, lleva a la pestaña que corresponde.
-  new MutationObserver(() => {
-    if (!document.getElementById("lab-review").classList.contains("hidden")) abrirPestana("comprob");
-  }).observe(document.getElementById("lab-review"), { attributes: true, attributeFilter: ["class"] });
   new MutationObserver(() => {
     if (!resultado.classList.contains("hidden")) abrirPestana("config");
-  }).observe(resultado, { attributes: true, attributeFilter: ["class"] });
-  const diag = document.getElementById("lab-diag-box");
-  new MutationObserver(() => {
-    if (!diag.classList.contains("hidden") && document.getElementById("lab-result").classList.contains("hidden")) abrirPestana("comprob");
-  }).observe(diag, { attributes: true, attributeFilter: ["class"] });
+  }).observe(resultado, { childList: true });
 
   // ---------- Estado del servicio ----------
   const indicador = document.getElementById("servicio-estado");

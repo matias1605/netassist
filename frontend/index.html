@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0f1a2b">
   <title>NetAssist | Laboratorio de redes</title>
-  <link rel="stylesheet" href="style.css?v=11">
+  <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
   <!-- Mascota Nexo: se clona en la cabecera del chat, en el escenario y en el lanzador. -->
@@ -106,13 +106,13 @@
             <details class="ejemplo-card">
               <summary>Probar con un ejemplo</summary>
               <div class="ejemplo-cuerpo">
-                <p class="lab-help">Carga una práctica ficticia ya completa para ver cómo funciona cada paso. Puedes editarla antes de revisarla.</p>
-                <button id="lab-example" class="button button-quiet" type="button">Cargar ejemplo</button>
+                <p class="lab-help">Elige una práctica y se rellenará «Prepara tu práctica» automáticamente.</p>
+                <div id="lab-ejemplos" class="ejemplos-lista"></div>
               </div>
             </details>
 
             <div class="laboratorio-grid">
-              <!-- Izquierda: preparar la práctica -->
+              <!-- Preparar la práctica -->
               <form id="laboratorio-form" class="lab-sheet lab-form" aria-labelledby="lab-form-title">
                 <header class="card-head">
                   <span class="card-num" aria-hidden="true">01</span>
@@ -122,72 +122,40 @@
                   </div>
                 </header>
                 <label>Nombre de la práctica<input name="nombre" maxlength="120" placeholder="Separar Administración y Laboratorio"></label>
-                <label>Tipo de tarea<select name="tipo"><option value="configuracion">Generar configuración</option><option value="topologia">Generar topología</option></select></label>
 
                 <p class="form-sec"><span>El equipo</span><span>Cisco IOS</span></p>
                 <div class="lab-fields">
                   <label>Alias del switch<input name="alias" maxlength="64" placeholder="Ej. SW1"></label>
                   <label>Modelo del switch<input name="modelo" maxlength="120" placeholder="Ej. Catalyst 2960"></label>
-                  <label>Versión de IOS<input name="ios" maxlength="80" placeholder="Ej. 15.0"></label>
                 </div>
-                <p class="lab-help">Modelo e IOS son obligatorios para configuración. Si no los conoces, déjalos vacíos y revisa qué falta.</p>
 
                 <fieldset class="lab-ports"><legend class="form-sec"><span>Grupos de puertos</span><span>VLAN de acceso</span></legend><div id="laboratorio-puertos"></div></fieldset>
                 <button id="lab-add" class="button button-quiet" type="button">+ Añadir grupo</button>
 
-                <label class="lab-objective">Objetivo y requisitos<textarea name="objetivo" rows="3" maxlength="1500" placeholder="Qué debe lograr la práctica"></textarea></label>
-                <div class="lab-buttons"><button class="button button-contact" type="submit">Revisar datos</button></div>
-                <p id="lab-status" role="status" class="lab-help">Cargando ejemplo compartido…</p>
+                <div class="lab-buttons">
+                  <button class="button button-contact" type="submit">Enviar a la inteligencia artificial</button>
+                  <button id="lab-save" class="button button-quiet" type="button">Guardar datos</button>
+                </div>
+                <p id="lab-status" role="status" class="lab-help"></p>
               </form>
 
-              <!-- Derecha: tu práctica con pestañas -->
-              <section class="lab-sheet lab-practica" aria-labelledby="practica-titulo">
-                <header class="practica-head">
-                  <div>
-                    <p class="eyebrow eyebrow-sm">Tu práctica</p>
-                    <h2 id="practica-titulo">Un espacio para construir</h2>
-                  </div>
-                  <span id="practica-estado" class="pill">Sin práctica abierta</span>
-                </header>
+              <!-- Resumen de la sesión: aparece cuando Nexo termina la configuración en el chat -->
+              <section id="lab-practica" class="lab-sheet lab-practica" aria-label="Resumen de la sesión" hidden>
                 <div class="tabs" role="tablist" aria-label="Secciones de la práctica">
                   <button id="tab-config" class="tab activa" type="button" role="tab" aria-selected="true" aria-controls="panel-config" data-tab="config">Configuración</button>
                   <button id="tab-comprob" class="tab" type="button" role="tab" aria-selected="false" aria-controls="panel-comprob" data-tab="comprob" tabindex="-1">Comprobaciones</button>
-                  <button id="tab-fuentes" class="tab" type="button" role="tab" aria-selected="false" aria-controls="panel-fuentes" data-tab="fuentes" tabindex="-1">Fuentes</button>
                 </div>
 
                 <div id="panel-config" class="tab-panel" role="tabpanel" aria-labelledby="tab-config" aria-live="polite">
-                  <div id="lab-result-empty" class="vacio">
-                    <svg viewBox="0 0 280 110" aria-hidden="true" focusable="false">
-                      <line x1="40" y1="55" x2="240" y2="55" class="v-enlace"/>
-                      <rect x="22" y="37" width="36" height="36" rx="5" class="v-pc1"/>
-                      <rect x="100" y="28" width="80" height="54" rx="10" class="v-sw"/>
-                      <g class="v-puertos"><rect x="112" y="48" width="10" height="5" rx="1"/><rect x="126" y="48" width="10" height="5" rx="1"/><rect x="140" y="48" width="10" height="5" rx="1"/><rect x="154" y="48" width="10" height="5" rx="1"/></g>
-                      <rect x="224" y="37" width="36" height="36" rx="5" class="v-pc2"/>
-                    </svg>
-                    <p class="vacio-eyebrow">De la idea a la práctica</p>
-                    <p class="lab-help">Aquí aparecerá la configuración propuesta. Completa los datos, revísalos y genera la propuesta.</p>
-                  </div>
-                  <p id="lab-result-state" class="lab-state hidden">Sin propuesta</p>
+                  <p id="lab-result-state" class="lab-state hidden"></p>
                   <div id="lab-result" class="bubble hidden"></div>
                   <p class="lab-help lab-aviso">Comprobación en laboratorio: no realizada. Generar una respuesta no ejecuta comandos ni certifica conectividad.</p>
                 </div>
 
                 <div id="panel-comprob" class="tab-panel" role="tabpanel" aria-labelledby="tab-comprob" hidden>
-                  <section aria-labelledby="lab-review-title" class="sub-sec">
-                    <h3 id="lab-review-title">Revisión de datos</h3>
-                    <p id="lab-review-empty" class="lab-help">Completa el formulario y pulsa «Revisar datos». Este paso no consulta a la IA.</p>
-                    <div id="lab-review" class="hidden">
-                      <p id="lab-missing" role="status"></p>
-                      <p class="lab-help">Se aplican reglas de VLAN, puertos y nombres. Aprobarlas no equivale a probar en el simulador.</p>
-                      <details><summary>Propuesta determinista (sin IA)</summary><div id="lab-preview" class="bubble"></div></details>
-                      <details><summary>Datos y solicitud que se enviarán</summary><pre id="lab-draft" class="lab-draft"></pre></details>
-                      <label class="lab-confirm"><input id="lab-confirm" type="checkbox"> Revisé estos datos ficticios y quiero generar una propuesta.</label>
-                      <div class="lab-buttons"><button id="lab-generate" class="button button-contact" type="button" disabled>Generar propuesta</button><button id="lab-discard" class="button button-quiet" type="button">Descartar revisión</button></div>
-                    </div>
-                  </section>
                   <section aria-labelledby="lab-diag-title" aria-live="polite" class="sub-sec">
                     <h3 id="lab-diag-title">Diagnóstico con evidencia</h3>
-                    <p id="lab-diag-empty" class="lab-help">Genera o reabre una práctica para diagnosticarla con las salidas de tu simulador.</p>
+                    <p id="lab-diag-empty" class="lab-help">Cuando la sesión quede guardada podrás pegar aquí las salidas de tu simulador.</p>
                     <div id="lab-diag-box" class="hidden">
                       <p class="lab-help">Ejecuta los comandos en tu simulador y pega las salidas (<code>show vlan brief</code>, <code>show interfaces &lt;puerto&gt; switchport</code>). Se comparan con los datos declarados; no se consulta ningún dispositivo.</p>
                       <label class="lab-objective">Salidas de verificación<textarea id="lab-evidence" rows="7" maxlength="8000" spellcheck="false"></textarea></label>
@@ -196,14 +164,6 @@
                       <div id="lab-diag" class="bubble hidden"></div>
                     </div>
                   </section>
-                </div>
-
-                <div id="panel-fuentes" class="tab-panel" role="tabpanel" aria-labelledby="tab-fuentes" hidden>
-                  <ul class="fuentes">
-                    <li><strong>Reglas deterministas</strong><span>VLAN, puertos de acceso y nombres se validan en el servidor, sin IA.</span></li>
-                    <li><strong>Base de conocimiento</strong><span>Las explicaciones se apoyan en documentación Cisco cargada en el proyecto.</span></li>
-                    <li><strong>Tu simulador</strong><span>Las salidas de Cisco Packet Tracer las pegas tú; NetAssist nunca se conecta a un equipo.</span></li>
-                  </ul>
                 </div>
               </section>
             </div>
@@ -317,9 +277,9 @@
     </div>
   </dialog>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js" defer></script>
-  <script src="app.js?v=11" defer></script>
-  <script src="laboratorio.js?v=4" defer></script>
-  <script src="mascota.js?v=4" defer></script>
-  <script src="vistas.js?v=2" defer></script>
+  <script src="app.js?v=13" defer></script>
+  <script src="laboratorio.js?v=6" defer></script>
+  <script src="mascota.js?v=5" defer></script>
+  <script src="vistas.js?v=3" defer></script>
 </body>
 </html>

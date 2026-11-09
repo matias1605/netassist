@@ -120,7 +120,7 @@
     practica.textContent = nombre ? `Práctica: ${nombre}` : "Sin práctica abierta";
   }
   nombrePractica?.addEventListener("input", actualizarPractica);
-  for (const id of ["lab-status", "lab-missing", "lab-result-state"]) {
+  for (const id of ["lab-status", "lab-result-state"]) {
     const el = document.getElementById(id);
     if (el) new MutationObserver(actualizarPractica).observe(el, { childList: true, characterData: true, subtree: true });
   }

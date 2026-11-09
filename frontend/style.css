@@ -254,7 +254,7 @@ button { cursor: pointer; }
 .ejemplo-cuerpo { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 0 24px 22px; }
 .ejemplo-cuerpo .lab-help { flex: 1 1 280px; margin: 0; }
 
-.laboratorio-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.laboratorio-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
 .lab-sheet { min-width: 0; padding: 28px; background: var(--white); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 6px 22px rgb(24 48 77 / 5%); }
 .lab-form { display: flex; flex-direction: column; gap: 18px; }
 .card-head { display: flex; align-items: center; gap: 16px; }
@@ -263,7 +263,6 @@ button { cursor: pointer; }
 .card-num { display: grid; place-items: center; flex: 0 0 auto; width: 48px; height: 48px; border: 1px solid #cfe9e5; border-radius: 12px; color: var(--blue-dark); background: var(--teal-soft); font-size: 14px; font-weight: 500; }
 .lab-help { color: #5f7083; font-size: 12.5px; line-height: 1.6; margin: 0; }
 .lab-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.lab-fields label:first-child { grid-column: 1 / -1; }
 .form-sec { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0 0; color: #7b8a9b; font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
 .form-sec span:last-child { letter-spacing: .04em; text-transform: none; font-weight: 500; }
 .laboratorio label, .lab-cases label { display: flex; flex-direction: column; gap: 8px; min-width: 0; color: #1d2b3b; font-size: 13px; font-weight: 650; }
@@ -283,7 +282,6 @@ button { cursor: pointer; }
 .lab-port input { font-size: 13px; }
 .lab-port button { grid-column: 1 / -1; justify-self: end; min-height: 30px; font-size: 12px; }
 
-.lab-objective { gap: 8px; }
 .lab-buttons { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin: 0; }
 .lab-sheet summary { cursor: pointer; font-size: 13px; color: var(--blue-dark); font-weight: 600; }
 .lab-sheet details { margin: 12px 0; }
@@ -294,12 +292,10 @@ button { cursor: pointer; }
 .lab-case-select { display: grid; gap: 6px; flex: 1 1 220px; }
 
 /* Panel "Tu práctica" */
-.lab-practica { position: sticky; top: 16px; padding: 0; overflow: hidden; }
-.practica-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 28px 28px 20px; }
-.practica-head h2 { margin: 6px 0 0; color: var(--navy); font-size: 23px; letter-spacing: -.02em; }
+.lab-practica { padding: 0; overflow: hidden; }
 .pill { flex: 0 0 auto; padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px; color: #7b8a9b; background: #fff; font-size: 11px; white-space: nowrap; }
 .pill-activa { color: var(--blue-dark); border-color: #bfe3de; background: var(--teal-soft); }
-.tabs { display: flex; gap: 26px; padding: 0 28px; border-bottom: 1px solid var(--line); }
+.tabs { display: flex; align-items: center; gap: 26px; padding: 14px 28px 0; border-bottom: 1px solid var(--line); }
 .tab { position: relative; padding: 10px 0 14px; border: 0; color: #6b7a8c; background: none; font-size: 13.5px; font-weight: 500; }
 .tab:hover { color: var(--navy); }
 .tab.activa { color: var(--blue-dark); font-weight: 700; }
@@ -309,24 +305,11 @@ button { cursor: pointer; }
 .tab-panel[hidden] { display: none; }
 .sub-sec + .sub-sec { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--line); }
 .sub-sec h3 { margin: 0 0 10px; color: var(--navy); font-size: 16px; }
-.vacio { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; text-align: center; background: radial-gradient(circle at 50% 38%, #eaf6f4 0, transparent 60%); }
-.vacio svg { width: min(280px, 90%); height: auto; margin-bottom: 18px; }
-.vacio .lab-help { max-width: 320px; }
-.vacio-eyebrow { margin: 0 0 8px; color: var(--blue-dark); font-size: 10px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
-.v-enlace { stroke: #a9d6d0; stroke-width: 2; stroke-dasharray: 4 5; }
-.v-pc1 { fill: #fff; stroke: #1f8f87; stroke-width: 3; }
-.v-pc2 { fill: #fff; stroke: #d99a5b; stroke-width: 3; }
-.v-sw { fill: #f2faf9; stroke: #1f8f87; stroke-width: 2; }
-.v-puertos rect { fill: #1f8f87; }
 .lab-state { margin: 0 0 14px; padding: 9px 12px; border-left: 3px solid #c68b26; border-radius: 0 8px 8px 0; color: #795111; background: #fff7e6; font-size: 13px; font-weight: 700; }
 .lab-aviso { margin-top: 14px; }
 #lab-result { margin: 0; font-size: 14px; }
 #lab-result .topologia svg { max-width: 100%; }
 #lab-missing { margin: 0 0 8px; font-size: 13px; }
-.fuentes { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
-.fuentes li { display: grid; gap: 4px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: #fafcfd; }
-.fuentes strong { color: var(--navy); font-size: 14px; }
-.fuentes span { color: #5f7083; font-size: 13px; line-height: 1.5; }
 .lab-cases { display: grid; gap: 18px; }
 
 /* ---------- Responsive ---------- */
@@ -350,7 +333,6 @@ button { cursor: pointer; }
   .laboratorio-heading { flex-direction: column; }
   .sello { display: none; }
   .lab-sheet { padding: 20px 16px; }
-  .practica-head { padding: 20px 16px 14px; }
   .tabs { padding: 0 16px; gap: 18px; }
   .tab-panel { padding: 18px 16px 22px; }
   .lab-fields, .lab-port, .presentacion-pasos { grid-template-columns: 1fr; }
@@ -373,3 +355,11 @@ button { cursor: pointer; }
 .message-avatar:not(.vivo) { opacity: .55; filter: saturate(.6); }
 .message-avatar:not(.vivo) .nexo * { animation: none !important; }
 .typing .message-avatar { margin: 0 6px 0 0; }
+.tabs .pill { margin-left: auto; margin-bottom: 8px; }
+.ejemplos-lista { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; width: 100%; }
+.ejemplo-boton { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; color: var(--navy); background: #fafcfd; text-align: left; transition: border-color .15s, background .15s, transform .15s; }
+.ejemplo-boton:hover { border-color: #7fcfc6; background: var(--teal-soft); transform: translateY(-1px); }
+.ejemplo-boton strong { font-size: 14px; }
+.ejemplo-boton span { color: var(--muted); font-size: 12px; }
+.ejemplo-boton:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.lab-practica[hidden] { display: none; }

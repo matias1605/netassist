@@ -16,7 +16,7 @@ from .config import CASOS_DB_PATH, FRONTEND_ORIGIN, SUPPORT_CONTACT
 from .acciones import obtener_acciones
 from .informes import generar_informe, nombre_archivo
 from .cadena import crear_cadena
-from .laboratorio import TareaLaboratorio, _fuentes, ejemplo_laboratorio, preparar_tarea, generar_tarea
+from .laboratorio import TareaLaboratorio, _fuentes, ejemplo_laboratorio, preparar_tarea, generar_tarea, guardar_sesion
 from .llm import MENSAJE_FALLBACK
 from .rag import RagService
 from .seguridad import MENSAJE_DATOS_SENSIBLES, contiene_datos_sensibles, validar_imagen, validar_historial
@@ -168,6 +168,12 @@ class GeneracionLaboratorio(BaseModel):
     caso_id: str | None = Field(default=None, max_length=32)
 
 
+class SesionLaboratorio(BaseModel):
+    tarea: TareaLaboratorio
+    resumen: str = Field(min_length=1, max_length=12000)
+    caso_id: str | None = Field(default=None, max_length=32)
+
+
 class EvidenciaDiagnostico(BaseModel):
     salida: str = Field(min_length=1, max_length=8000)
 
@@ -224,6 +230,18 @@ async def laboratorio_generar(solicitud: GeneracionLaboratorio, request: Request
     except Exception as error:
         logger.error("Falló la tarea de laboratorio. tipo=%s", type(error).__name__)
         raise HTTPException(status_code=503, detail="No se pudo generar la propuesta. Intenta nuevamente.") from error
+
+
+@app.post("/laboratorio/guardar")
+async def laboratorio_guardar(solicitud: SesionLaboratorio, request: Request) -> dict:
+    """Guarda el resumen de la sesión de chat como caso (sin llamar a la IA)."""
+    usuario = usuario_de(request)
+    try:
+        return guardar_sesion(solicitud.tarea, solicitud.resumen, almacen, solicitud.caso_id, usuario)
+    except CasoNoEncontrado as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
 
 
 @app.get("/casos")

@@ -66,13 +66,9 @@ def preparar_tarea(tarea: TareaLaboratorio) -> dict:
         faltantes.append("Nombre de la práctica")
     if not tarea.equipo.alias:
         faltantes.append("Alias del switch")
-    if tarea.tipo == "configuracion":
-        if not tarea.equipo.modelo:
-            faltantes.append("Modelo del switch")
-        if not tarea.equipo.ios:
-            faltantes.append("Versión de IOS")
-    if not tarea.objetivo:
-        faltantes.append("Objetivo y requisitos")
+    # La versión de IOS y el objetivo son opcionales: el estudiante describe lo que quiere directamente en el chat.
+    if tarea.tipo == "configuracion" and not tarea.equipo.modelo:
+        faltantes.append("Modelo del switch")
     for numero, vlan in enumerate(tarea.vlans, 1):
         for campo, titulo in (("id", "VLAN"), ("nombre", "Nombre de VLAN"), ("puerto", "Puerto de acceso"), ("host", "Equipo conectado")):
             if not getattr(vlan, campo):
@@ -97,6 +93,22 @@ def preparar_tarea(tarea: TareaLaboratorio) -> dict:
         "validacion_tecnica": validacion, "comprobacion_laboratorio": "no_realizada", "propuesta": propuesta,
         "texto_previo": formatear_propuesta(propuesta) if propuesta else "",
     }
+
+
+def guardar_sesion(tarea: TareaLaboratorio, resumen: str, almacen, caso_id: str | None = None, usuario: str | None = None) -> dict:
+    """Guarda como caso el resumen que Nexo dio en el chat, sin volver a llamar a la IA.
+
+    Solo se guarda si los datos del formulario pasan las reglas; la propuesta determinista acompaña al resumen."""
+    revision = preparar_tarea(tarea)
+    if revision["errores"]:
+        raise ValueError("Corrige estos datos: " + " ".join(revision["errores"]))
+    if revision["faltantes"]:
+        raise ValueError("Completa juntos estos datos: " + "; ".join(revision["faltantes"]))
+    if contiene_datos_sensibles(resumen):
+        raise ValueError(MENSAJE_DATOS_SENSIBLES)
+    caso_id = almacen.guardar_caso(revision["datos"], caso_id, usuario)
+    almacen.guardar_propuesta(caso_id, revision["propuesta"], resumen, usuario)
+    return {"caso_id": caso_id, "estado": "resumen_guardado", "comprobacion_laboratorio": "no_realizada"}
 
 
 async def _fuentes(rag, consulta: str = "configurar VLAN y puertos de acceso switchport") -> list[str]:

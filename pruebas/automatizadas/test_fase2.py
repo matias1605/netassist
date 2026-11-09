@@ -50,8 +50,9 @@ class LaboratorioTests(unittest.IsolatedAsyncioTestCase):
         self.datos["equipo"]["ios"] = ""
         self.datos["vlans"][0]["puerto"] = ""
         tarea = TareaLaboratorio(**self.datos)
-        self.assertEqual(len(preparar_tarea(tarea)["faltantes"]), 3)
-        with self.assertRaisesRegex(ValueError, "Modelo.*IOS.*Puerto"):
+        # La versión de IOS es opcional: solo faltan el modelo y el puerto.
+        self.assertEqual(len(preparar_tarea(tarea)["faltantes"]), 2)
+        with self.assertRaisesRegex(ValueError, "Modelo.*Puerto"):
             await generar_tarea(tarea, True, self.cadena)
         self.cadena.ainvoke.assert_not_called()
 

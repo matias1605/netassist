@@ -192,6 +192,26 @@ function appendMessage(role, content, persist = true, imagenUrl = null) {
   }
 }
 
+// Abre el chat y le envía a Nexo una petición (la usa el botón «Enviar a la inteligencia artificial»).
+window.enviarANexo = (texto) => {
+  if (sendButton.disabled) return;
+  document.getElementById("nexo-launcher").click();
+  inputElement.value = texto;
+  chatForm.requestSubmit();
+};
+
+// Añade al último mensaje (solo en lo que se envía, no en el historial visible) los datos del formulario de la práctica.
+function conContexto(mensajes) {
+  const contexto = typeof window.labContexto === "function" ? window.labContexto() : "";
+  if (!contexto || !mensajes.length) return mensajes;
+  const copia = mensajes.map(m => ({ ...m }));
+  const ultimo = copia[copia.length - 1];
+  const extra = `\n\nDatos de mi práctica (formulario del laboratorio, ficticios):\n${contexto}`;
+  if (ultimo.content.length + extra.length > 12000) return mensajes; // límite por mensaje del backend
+  ultimo.content += extra;
+  return copia;
+}
+
 function restoreHistory() {
   for (const message of history) appendMessage(message.role, message.content, false);
 }
@@ -318,7 +338,7 @@ chatForm.addEventListener("submit", async (event) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(
-        imagen ? { messages: history, imagen: { mime: imagen.mime, data: imagen.data, laboratorio_confirmado: true } } : { messages: history }
+        imagen ? { messages: conContexto(history), imagen: { mime: imagen.mime, data: imagen.data, laboratorio_confirmado: true } } : { messages: conContexto(history) }
       ),
     });
     const data = await response.json();
@@ -336,6 +356,8 @@ chatForm.addEventListener("submit", async (event) => {
       supportContact = data.contact;
     }
     appendMessage("assistant", data.reply);
+    // Si Nexo entregó comandos o un diagrama, lo deja también en el panel de la práctica.
+    if (/```/.test(data.reply) && typeof window.labDesdeChat === "function") window.labDesdeChat(data.reply);
   } catch (error) {
     console.error("Falló la solicitud de chat:", error);
     appendMessage(

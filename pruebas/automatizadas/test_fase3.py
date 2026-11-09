@@ -131,6 +131,20 @@ class AlmacenTests(unittest.IsolatedAsyncioTestCase):
         self.cadena = MagicMock(ainvoke=AsyncMock(return_value="Explicación breve."))
         self.rag = MagicMock(buscar=MagicMock(return_value=[{"archivo": "cisco_ios_basico.txt", "texto": "x", "distancia": 0.1}]))
 
+    def test_guardar_sesion_del_chat_sin_llamar_a_la_ia(self):
+        from backend.laboratorio import guardar_sesion
+        datos = ejemplo_laboratorio()
+        datos["equipo"]["ios"] = datos["objetivo"] = ""  # el formulario web ya no los pide
+        resultado = guardar_sesion(TareaLaboratorio(**datos), "Resumen de Nexo con comandos.", self.almacen)
+        caso = self.almacen.obtener_caso(resultado["caso_id"])
+        self.assertEqual(caso["tarea"]["nombre"], datos["nombre"])
+        self.assertIn("Resumen de Nexo", caso["propuesta"]["texto"])
+        self.cadena.ainvoke.assert_not_called()
+        datos["vlans"][0]["puerto"] = ""
+        with self.assertRaisesRegex(ValueError, "Puerto"):
+            guardar_sesion(TareaLaboratorio(**datos), "Resumen.", self.almacen)
+        self.assertEqual(len(self.almacen.listar_casos()), 1)
+
     async def test_guardar_reabrir_y_fuentes(self):
         resultado = await generar_tarea(tarea_con(), True, self.cadena, self.rag, self.almacen)
         caso = self.almacen.obtener_caso(resultado["caso_id"])
@@ -157,8 +171,8 @@ class AlmacenTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, "Corrige"):
             await generar_tarea(TareaLaboratorio(**datos), True, self.cadena, self.rag, self.almacen)
         datos = ejemplo_laboratorio()
-        datos["equipo"]["ios"] = ""
-        with self.assertRaisesRegex(ValueError, "IOS"):
+        datos["equipo"]["modelo"] = ""  # la versión de IOS ya es opcional; el modelo sigue siendo obligatorio
+        with self.assertRaisesRegex(ValueError, "Modelo"):
             await generar_tarea(TareaLaboratorio(**datos), True, self.cadena, self.rag, self.almacen)
         self.cadena.ainvoke.assert_not_called()
         self.assertEqual(self.almacen.listar_casos(), [])

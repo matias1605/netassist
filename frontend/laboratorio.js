@@ -1,11 +1,8 @@
-/* Formulario de laboratorio: revisión local de campos compartida con Streamlit. */
+/* Laboratorio: formulario de la práctica, ejemplos, envío a Nexo y resumen de la sesión. */
 "use strict";
 const labForm = document.getElementById("laboratorio-form");
 const labPorts = document.getElementById("laboratorio-puertos");
 const labStatus = document.getElementById("lab-status");
-const labConfirm = document.getElementById("lab-confirm");
-const labGenerate = document.getElementById("lab-generate");
-let labRevision = null;
 let labBusy = false;
 let labCaseId = null;
 const labCases = document.getElementById("lab-cases");
@@ -14,7 +11,18 @@ const labFilter = document.getElementById("lab-filter");
 const labArchived = document.getElementById("lab-archived");
 const labCasesStatus = document.getElementById("lab-cases-status");
 const LAB_ESTADOS = { borrador: "Borrador", propuesta: "Propuesta generada", comprobado: "Comprobado en laboratorio", comprobacion_fallida: "Comprobación fallida", en_diagnostico: "En diagnóstico", diagnostico_coherente: "Salidas coherentes" };
+const LAB_GUARDADO = "netassist_practica";
 let labArchivedCase = false;
+
+// Prácticas de ejemplo (datos ficticios) que solo rellenan el formulario.
+const LAB_EJEMPLOS = [
+  { titulo: "Administración y Laboratorio", nombre: "Segmentación de Administración y Laboratorio", equipo: { alias: "SW1", modelo: "Cisco Catalyst 2960" },
+    vlans: [{ id: "10", nombre: "ADMINISTRACION", puerto: "GigabitEthernet0/1", host: "PC_ADMIN" }, { id: "20", nombre: "LABORATORIO", puerto: "GigabitEthernet0/2", host: "PC_LAB" }] },
+  { titulo: "Ventas y Soporte", nombre: "Separar Ventas y Soporte", equipo: { alias: "SW_OFICINA", modelo: "Cisco Catalyst 2960" },
+    vlans: [{ id: "30", nombre: "VENTAS", puerto: "Fa0/1", host: "PC_VENTAS" }, { id: "40", nombre: "SOPORTE", puerto: "Fa0/2", host: "PC_SOPORTE" }] },
+  { titulo: "Aulas, profesores e invitados", nombre: "Red del colegio con tres VLAN", equipo: { alias: "SW_COLEGIO", modelo: "Cisco Catalyst 2960" },
+    vlans: [{ id: "50", nombre: "AULAS", puerto: "Fa0/1", host: "PC_AULA1" }, { id: "60", nombre: "PROFESORES", puerto: "Fa0/2", host: "PC_PROFE" }, { id: "70", nombre: "INVITADOS", puerto: "Fa0/3", host: "PC_INVITADO" }] },
+];
 
 // Clave personal opaca para separar casos entre personas del mismo navegador/servidor; no es autenticación.
 function labNewUser() {
@@ -33,23 +41,21 @@ function labUser() {
 }
 function labHeaders(extra = {}) { return { "X-Usuario": labUser(), ...extra }; }
 
-function labInvalidate() {
-  labRevision = null;
-  labConfirm.checked = false;
-  labGenerate.disabled = true;
-  document.getElementById("lab-review").classList.add("hidden");
-  document.getElementById("lab-review-empty").classList.remove("hidden");
-  document.getElementById("lab-result").replaceChildren();
-  document.getElementById("lab-result").classList.add("hidden");
-  document.getElementById("lab-result-state").textContent = "Sin propuesta para estos datos";
+// El formulario no muestra tipo, IOS ni objetivo (eso se pide en el chat); se conservan los de un caso reabierto.
+let labExtra = { tipo: "configuracion", ios: "", objetivo: "" };
+function labFill(data) {
+  labExtra = { tipo: data.tipo || "configuracion", ios: data.equipo.ios || "", objetivo: data.objetivo || "" };
+  labForm.elements.namedItem("nombre").value = data.nombre || "";
+  for (const key of ["alias", "modelo"]) labForm.elements.namedItem(key).value = data.equipo[key] || "";
+  labPorts.replaceChildren();
+  (data.vlans.length ? data.vlans : [{}]).forEach(labAddPort);
+  // Avisa a quien escucha el formulario (p. ej. el nombre de la práctica en la cabecera del chat).
+  labForm.elements.namedItem("nombre").dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 function labSetBusy(busy) {
   labBusy = busy;
   for (const element of labForm.elements) element.disabled = busy;
-  labConfirm.disabled = busy;
-  document.getElementById("lab-discard").disabled = busy;
-  labGenerate.disabled = busy || !labRevision || labRevision.faltantes.length > 0 || labRevision.errores.length > 0 || !labConfirm.checked;
   labCases.disabled = busy; document.getElementById("lab-reopen").disabled = busy || !labCases.options.length;
   document.getElementById("lab-report").disabled = busy || !labCaseId;
   document.getElementById("lab-archive").disabled = busy || !labCaseId;
@@ -82,12 +88,12 @@ function labAddPort(data = {}) {
   remove.addEventListener("click", () => {
     if (labBusy) return;
     if (labPorts.children.length === 1) {
-      labStatus.textContent = "Mantén al menos un grupo para revisar la práctica.";
+      labStatus.textContent = "Mantén al menos un grupo de puertos.";
       return;
     }
     row.remove();
     [...labPorts.children].forEach((hermano, i) => { hermano.querySelector(".lab-port-titulo").textContent = `Grupo ${i + 1}`; hermano.dataset.color = String(i % 2); });
-    labInvalidate(); labSetBusy(false);
+    labSetBusy(false);
   });
   row.appendChild(remove);
   labPorts.appendChild(row);
@@ -95,7 +101,7 @@ function labAddPort(data = {}) {
 
 function labRead() {
   const value = (name) => labForm.elements.namedItem(name).value.trim();
-  return { tipo: value("tipo"), nombre: value("nombre"), equipo: { alias: value("alias"), modelo: value("modelo"), ios: value("ios") }, objetivo: value("objetivo"),
+  return { tipo: labExtra.tipo, nombre: value("nombre"), equipo: { alias: value("alias"), modelo: value("modelo"), ios: labExtra.ios }, objetivo: labExtra.objetivo,
     vlans: [...labPorts.children].map(row => Object.fromEntries([...row.querySelectorAll("input[data-field]")].map(input => [input.dataset.field, input.value.trim()]))) };
 }
 
@@ -106,77 +112,64 @@ async function labRequest(path, body) {
   return data;
 }
 
-async function labLoadExample() {
-  if (labBusy) return;
-  labSetBusy(true);
+// ----- Ejemplos y guardado local -----
+function labSave() {
+  try { localStorage.setItem(LAB_GUARDADO, JSON.stringify(labRead())); return true; } catch { return false; }
+}
+function labRestore() {
   try {
-    const data = await labRequest("ejemplo");
-    for (const key of ["tipo", "nombre", "objetivo"]) labForm.elements.namedItem(key).value = data[key];
-    for (const key of ["alias", "modelo", "ios"]) labForm.elements.namedItem(key).value = data.equipo[key];
-    labPorts.replaceChildren();
-    data.vlans.forEach(labAddPort);
-    labInvalidate();
-    labCaseId = null;
-    labResetDiagnosis(null);
-    labStatus.textContent = "Ejemplo ficticio cargado. Puedes editarlo antes de revisar.";
-  } catch (error) {
-    if (!labPorts.children.length) labAddPort();
-    labStatus.textContent = `No se pudo cargar el ejemplo. Puedes completar los datos. ${error.message}`;
-  } finally { labSetBusy(false); }
+    const guardado = JSON.parse(localStorage.getItem(LAB_GUARDADO) || "null");
+    if (guardado && guardado.equipo && Array.isArray(guardado.vlans)) { labFill(guardado); return; }
+  } catch { /* datos guardados ilegibles: se empieza vacío */ }
+  labAddPort();
 }
 
-labForm.addEventListener("input", () => { labInvalidate(); labStatus.textContent = "Datos editados. Revisa nuevamente antes de generar."; });
-labForm.addEventListener("change", labInvalidate);
-document.getElementById("lab-add").addEventListener("click", () => { if (!labBusy) { labAddPort(); labInvalidate(); labSetBusy(false); } });
-document.getElementById("lab-example").addEventListener("click", labLoadExample);
-document.getElementById("lab-discard").addEventListener("click", labInvalidate);
-labConfirm.addEventListener("change", () => labSetBusy(labBusy));
+const labEjemplos = document.getElementById("lab-ejemplos");
+for (const ejemplo of LAB_EJEMPLOS) {
+  const boton = document.createElement("button");
+  boton.type = "button";
+  boton.className = "ejemplo-boton";
+  const titulo = document.createElement("strong");
+  titulo.textContent = ejemplo.titulo;
+  const detalle = document.createElement("span");
+  detalle.textContent = `${ejemplo.equipo.alias} · ${ejemplo.vlans.length} VLAN`;
+  boton.append(titulo, detalle);
+  boton.addEventListener("click", () => {
+    if (labBusy) return;
+    labFill(ejemplo);
+    labCaseId = null;
+    labStatus.textContent = "";
+    labForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  labEjemplos.appendChild(boton);
+}
+
+document.getElementById("lab-add").addEventListener("click", () => { if (!labBusy) { labAddPort(); labSetBusy(false); } });
+document.getElementById("lab-save").addEventListener("click", () => {
+  labStatus.textContent = labSave() ? "Datos guardados." : "No se pudieron guardar en este navegador.";
+});
+labForm.addEventListener("input", () => { labStatus.textContent = ""; });
+
+// ----- Enviar a la IA: reglas primero (sin IA) y, si pasan, se lo pide a Nexo en el chat -----
 labForm.addEventListener("submit", async event => {
   event.preventDefault();
   if (labBusy) return;
-  const datos = labRead();
-  labInvalidate(); labSetBusy(true);
-  labStatus.textContent = "Revisando campos…";
+  labSetBusy(true);
+  labStatus.textContent = "";
+  let mensaje = "";
   try {
-    labRevision = await labRequest("preparar", datos);
-    document.getElementById("lab-draft").textContent = labRevision.prompt;
+    const revision = await labRequest("preparar", labRead());
     const problemas = [];
-    if (labRevision.errores.length) problemas.push(`Corrige estos datos: ${labRevision.errores.join(" ")}`);
-    if (labRevision.faltantes.length) problemas.push(`Completa estos datos: ${labRevision.faltantes.join("; ")}.`);
-    document.getElementById("lab-missing").textContent = problemas.length ? problemas.join(" ") : "Campos completos y reglas aprobadas. Revisa la solicitud antes de generar.";
-    const preview = document.getElementById("lab-preview");
-    preview.replaceChildren();
-    if (labRevision.propuesta) { preview.innerHTML = renderMarkdown(labRevision.texto_previo); renderTopologias(preview); }
-    document.getElementById("lab-review").classList.remove("hidden");
-    document.getElementById("lab-review-empty").classList.add("hidden");
-    labStatus.textContent = "Revisión preparada. No se consultó a la IA.";
+    if (revision.errores.length) problemas.push(`Corrige estos datos: ${revision.errores.join(" ")}`);
+    if (revision.faltantes.length) problemas.push(`Completa estos datos: ${revision.faltantes.join("; ")}.`);
+    if (problemas.length) { labStatus.textContent = problemas.join(" "); return; }
+    labSave();
+    mensaje = `Genera la configuración Cisco IOS de mi práctica «${labRead().nombre}»: comandos, verificaciones y una advertencia breve.`;
   } catch (error) { labStatus.textContent = error.message; }
   finally { labSetBusy(false); }
+  if (mensaje && typeof window.enviarANexo === "function") window.enviarANexo(mensaje);
 });
-labGenerate.addEventListener("click", async () => {
-  if (labBusy || !labRevision || !labConfirm.checked || labRevision.faltantes.length || labRevision.errores.length) return;
-  labSetBusy(true);
-  document.getElementById("lab-result").replaceChildren();
-  document.getElementById("lab-result").classList.add("hidden");
-  labStatus.textContent = "Generando propuesta…";
-  document.getElementById("lab-result-state").textContent = "Generando respuesta…";
-  try {
-    const data = await labRequest("generar", { tarea: labRevision.datos, confirmado: true, caso_id: labCaseId });
-    const result = document.getElementById("lab-result");
-    result.innerHTML = renderMarkdown(data.texto);
-    labCaseId = data.caso_id;
-    renderTopologias(result);
-    result.classList.remove("hidden");
-    document.getElementById("lab-result-state").textContent = data.estado === "respuesta_generada" ? "Propuesta con explicación de IA · Validada por reglas, pendiente de comprobar en laboratorio" : "Propuesta sin explicación de IA · Revisa el aviso";
-    labStatus.textContent = `Caso guardado (${String(data.caso_id).slice(0, 8)}). No se ejecutaron comandos.`;
-    labResetDiagnosis(labCaseId);
-    labMarkArchived(false);
-    labLoadCases();
-  } catch (error) {
-    document.getElementById("lab-result-state").textContent = "No se pudo generar una propuesta";
-    labStatus.textContent = error.message;
-  } finally { labSetBusy(false); }
-});
+
 // El panel de resultados comparte el comportamiento de copiado del chat.
 document.getElementById("lab-result").addEventListener("click", async event => {
   const button = event.target.closest(".copy-button");
@@ -184,6 +177,18 @@ document.getElementById("lab-result").addEventListener("click", async event => {
   try { await navigator.clipboard.writeText(button.parentElement.querySelector("code").textContent); button.textContent = "Copiado"; }
   catch { button.textContent = "No disponible"; }
 });
+
+// Muestra el resumen de la sesión (oculto hasta que haya algo que mostrar).
+function labShowResult(texto, estado) {
+  const result = document.getElementById("lab-result");
+  result.innerHTML = renderMarkdown(texto);
+  renderTopologias(result);
+  result.classList.remove("hidden");
+  const etiqueta = document.getElementById("lab-result-state");
+  etiqueta.textContent = estado;
+  etiqueta.classList.remove("hidden");
+  document.getElementById("lab-practica").hidden = false;
+}
 
 async function labLoadCases() {
   try {
@@ -214,23 +219,14 @@ document.getElementById("lab-reopen").addEventListener("click", async () => {
   labSetBusy(true);
   try {
     const caso = await labRequestRoot(`casos/${encodeURIComponent(labCases.value)}`);
-    const data = caso.tarea;
-    for (const key of ["tipo", "nombre", "objetivo"]) labForm.elements.namedItem(key).value = data[key];
-    for (const key of ["alias", "modelo", "ios"]) labForm.elements.namedItem(key).value = data.equipo[key];
-    labPorts.replaceChildren();
-    data.vlans.forEach(labAddPort);
-    labInvalidate();
+    labFill(caso.tarea);
     labCaseId = caso.caso_id;
     labMarkArchived(caso.archivado);
     if (caso.propuesta) {
-      const result = document.getElementById("lab-result");
-      result.innerHTML = renderMarkdown(caso.propuesta.texto);
-      renderTopologias(result);
-      result.classList.remove("hidden");
       const comprobacion = caso.propuesta.comprobacion_laboratorio;
-      document.getElementById("lab-result-state").textContent = `Caso reabierto · ${comprobacion === "no_realizada" ? "pendiente de comprobar en laboratorio" : `comprobación en laboratorio: ${comprobacion}`}`;
+      labShowResult(caso.propuesta.texto, `Práctica reabierta · ${comprobacion === "no_realizada" ? "pendiente de comprobar en laboratorio" : `comprobación en laboratorio: ${comprobacion}`}`);
     }
-    labStatus.textContent = "Caso reabierto. Si editas un dato y generas de nuevo, se actualiza el mismo caso.";
+    labStatus.textContent = "";
     if (window.irAVista) window.irAVista("laboratorio");
     labResetDiagnosis(labCaseId);
   } catch (error) { labStatus.textContent = error.message; }
@@ -325,11 +321,36 @@ labUserInput.addEventListener("change", () => {
   if (!/^[A-Za-z0-9_-]{16,64}$/.test(value)) { labCasesStatus.textContent = "Clave no válida: usa entre 16 y 64 letras, números, guion o guion bajo."; labUserInput.value = labUser(); return; }
   labUser.value = value;
   try { localStorage.setItem("netassist_usuario", value); } catch { /* solo esta pestaña */ }
-  labCaseId = null; labMarkArchived(false); labResetDiagnosis(null); labInvalidate();
+  labCaseId = null; labMarkArchived(false); labResetDiagnosis(null);
+  document.getElementById("lab-practica").hidden = true;
   labCasesStatus.textContent = "Clave cambiada. Se muestran los casos de esa clave.";
   labLoadCases();
 });
 
+// ----- Puente con el chat de Nexo -----
+// Datos del formulario que acompañan a cada consulta del chat (solo si hay algo escrito).
+window.labContexto = () => {
+  const datos = labRead();
+  const hayDatos = datos.nombre || datos.equipo.alias || datos.equipo.modelo || datos.vlans.some(v => Object.values(v).some(Boolean));
+  if (!hayDatos) return "";
+  const { tipo, objetivo, ...resto } = datos;
+  if (!resto.equipo.ios) delete resto.equipo.ios;
+  return JSON.stringify(resto, null, 2);
+};
+// Cuando Nexo termina una configuración o topología en el chat, aparece el resumen de la sesión
+// y, si los datos del formulario pasan las reglas, se guarda como práctica (sin volver a llamar a la IA).
+window.labDesdeChat = async (texto) => {
+  labShowResult(texto, "Resumen de la sesión con Nexo · pendiente de comprobar en laboratorio");
+  try {
+    const data = await labRequest("guardar", { tarea: labRead(), resumen: texto, caso_id: labCaseId });
+    labCaseId = data.caso_id;
+    labMarkArchived(false);
+    labResetDiagnosis(labCaseId);
+    labLoadCases();
+  } catch { /* Sin datos válidos en el formulario el resumen se muestra, pero no se guarda como práctica. */ }
+  labSetBusy(labBusy);
+};
+
 labResetDiagnosis(null);
 labLoadCases();
-labLoadExample();
+labRestore();
