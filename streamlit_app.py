@@ -39,6 +39,9 @@ BIENVENIDA = (
     "del equipo Cisco, la versión de IOS y el error exacto."
 )
 TIPOS_IMAGEN = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}
+AVATAR_BOT = "🛠️"
+AVATAR_USUARIO = "🧑‍💻"
+AVATARES = {"assistant": AVATAR_BOT, "user": AVATAR_USUARIO}
 PATRON_MERMAID = re.compile(r"```mermaid\s*\n(.*?)```", re.DOTALL)
 
 
@@ -51,9 +54,9 @@ def cargar_asistente():
 
 
 def _altura_diagrama(fuente: str) -> int:
-    """Calcula la altura del diagrama vertical: unos 95 px por cada nivel de equipos."""
+    """Calcula la altura del diagrama vertical: unos 90 px por cada nivel de equipos."""
     enlaces = sum(1 for linea in fuente.splitlines() if "--" in linea)
-    return min(100 + 95 * (enlaces + 1), 900)
+    return min(50 + 90 * (enlaces + 1), 900)
 
 
 def dibujar_mermaid(fuente: str) -> None:
@@ -62,8 +65,14 @@ def dibujar_mermaid(fuente: str) -> None:
     fuente = re.sub(r"^\s*(graph|flowchart)\s+(LR|RL)\b", r"\1 TD", fuente, flags=re.IGNORECASE)
     components.html(
         f"""
-        <div id="diagrama" style="display:flex;justify-content:center"></div>
-        <p style="text-align:center;font:12px sans-serif;color:#666">Topología generada por NetAssist</p>
+        <style>
+          html, body {{ margin: 0; padding: 0; background: transparent; }}
+          #diagrama {{ display: flex; justify-content: center; }}
+          #diagrama svg {{ display: block; height: auto; margin: 0 auto; }}
+          p {{ text-align: center; font: 12px sans-serif; color: #5b6b7f; margin: 6px 0 0; }}
+        </style>
+        <div id="diagrama"></div>
+        <p>Topología generada por NetAssist</p>
         <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
         <script>
           mermaid.initialize({{ startOnLoad: false, securityLevel: "strict", theme: "neutral" }});
@@ -73,7 +82,6 @@ def dibujar_mermaid(fuente: str) -> None:
         </script>
         """,
         height=_altura_diagrama(fuente),
-        scrolling=True,
     )
 
 
@@ -89,6 +97,11 @@ def mostrar_respuesta(texto: str) -> None:
     resto = texto[posicion:].strip()
     if resto:
         st.markdown(resto)
+
+
+def marcar_mensaje_usuario() -> None:
+    """Marca oculta para que el CSS distinga los mensajes del usuario (los emoji no traen una)."""
+    st.html('<span class="msg-usuario"></span>')
 
 
 def nueva_conversacion() -> None:
@@ -123,19 +136,42 @@ st.html(
       .st-key-ventana-chat {
         position: fixed; right: 24px; bottom: 100px; z-index: 1000;
         width: min(420px, calc(100vw - 32px)) !important;
-        max-height: calc(100vh - 124px); overflow-y: auto;
-        background: #fff; border-radius: 16px; padding: 0 14px 12px;
-        box-shadow: 0 12px 36px rgba(0, 0, 0, .25);
+        max-height: calc(100vh - 124px); overflow: hidden;
+        background: #fff; border-radius: 18px; padding: 0; gap: 0;
+        box-shadow: 0 14px 40px rgba(16, 42, 67, .28);
+        border: 1px solid #e3e8ef;
       }
       .st-key-cabecera-chat {
-        background: #1F4E79; color: #fff; margin: 0 -14px; padding: 12px 14px;
-        border-radius: 16px 16px 0 0; width: calc(100% + 28px) !important;
+        background: linear-gradient(135deg, #1F4E79, #2E6DA4);
+        padding: 14px 16px; border-radius: 18px 18px 0 0;
       }
-      .st-key-cabecera-chat p { color: #fff; margin: 0; }
+      .st-key-cabecera-chat p { color: #fff; margin: 0; line-height: 1.3; }
+      .st-key-cabecera-chat small, .st-key-cabecera-chat em { color: #d6e4f2; font-style: normal; }
       .st-key-cabecera-chat button {
-        background: transparent; color: #fff; border: 1px solid rgba(255, 255, 255, .5);
-        padding: 2px 10px; min-height: 0;
+        background: rgba(255, 255, 255, .12); color: #fff;
+        border: 1px solid rgba(255, 255, 255, .55); border-radius: 999px;
+        padding: 2px 12px; min-height: 0; font-size: 13px;
       }
+      .st-key-cabecera-chat button:hover { background: rgba(255, 255, 255, .25); color: #fff; border-color: #fff; }
+      .st-key-cuerpo-chat { background: #f5f7fa; padding: 12px 12px 4px; }
+      .st-key-cuerpo-chat [data-testid="stChatMessage"] {
+        padding: 10px 12px; margin-bottom: 4px; border-radius: 14px;
+        background: #fff; border: 1px solid #e3e8ef; gap: 8px;
+      }
+      .st-key-cuerpo-chat [data-testid="stChatMessage"]:has(.msg-usuario) {
+        flex-direction: row-reverse; background: #e3eefa; border-color: #c9dcf0; margin-left: 28px;
+      }
+      .st-key-cuerpo-chat [data-testid="stChatMessage"]:not(:has(.msg-usuario)) { margin-right: 12px; }
+      .st-key-cuerpo-chat .stElementContainer:has(.msg-usuario) { display: none; }
+      .st-key-cuerpo-chat [data-testid="stChatMessageContent"] { min-width: 0; }
+      .st-key-cuerpo-chat [data-testid="stChatMessageContent"] p { font-size: 14.5px; line-height: 1.5; }
+      .st-key-cuerpo-chat [data-testid="stImage"], .st-key-cuerpo-chat [data-testid="stImageContainer"] {
+        margin-left: auto; margin-right: auto;
+      }
+      .st-key-cuerpo-chat img { border-radius: 10px; }
+      .st-key-cuerpo-chat iframe { display: block; margin: 0 auto; }
+      .st-key-pie-chat { padding: 10px 12px 12px; border-top: 1px solid #e3e8ef; background: #fff; }
+      .st-key-pie-chat [data-testid="stChatInput"] > div { border-radius: 14px; }
       @media (max-width: 640px) {
         .st-key-ventana-chat { right: 16px; bottom: 96px; }
         .st-key-boton-burbuja { right: 16px; bottom: 16px; }
@@ -190,29 +226,36 @@ with st.container(key="boton-burbuja"):
 # --- Ventana del chat --------------------------------------------------------------------
 if st.session_state.chat_abierto:
     with st.container(key="ventana-chat"):
-        with st.container(key="cabecera-chat"):
-            izquierda, derecha = st.columns([3, 2], vertical_alignment="center")
-            izquierda.markdown("**🛠️ NetAssist**  \nSoporte de redes Cisco IOS")
-            derecha.button("Nuevo chat", on_click=nueva_conversacion, help="Borra la conversación")
+        with st.container(
+            key="cabecera-chat",
+            horizontal=True,
+            vertical_alignment="center",
+            horizontal_alignment="distribute",
+        ):
+            st.markdown("**🛠️ NetAssist**  \n<small>Soporte de redes Cisco IOS</small>", unsafe_allow_html=True)
+            st.button("Nuevo chat", on_click=nueva_conversacion, help="Borra la conversación")
 
-        conversacion = st.container(height=400, border=False)
+        conversacion = st.container(height=420, border=False, key="cuerpo-chat")
         with conversacion:
-            with st.chat_message("assistant"):
+            with st.chat_message("assistant", avatar=AVATAR_BOT):
                 st.markdown(BIENVENIDA)
             for mensaje in st.session_state.mensajes:
-                with st.chat_message(mensaje["role"]):
+                with st.chat_message(mensaje["role"], avatar=AVATARES[mensaje["role"]]):
+                    if mensaje["role"] == "user":
+                        marcar_mensaje_usuario()
                     if mensaje.get("imagen"):
-                        st.image(mensaje["imagen"], width=240)
+                        st.image(mensaje["imagen"], width="stretch")
                     if mensaje["role"] == "assistant":
                         mostrar_respuesta(mensaje["content"])
                     else:
                         st.markdown(mensaje["content"])
 
-        entrada = st.chat_input(
-            "Describe tu problema de red…",
-            accept_file=True,
-            file_type=list(TIPOS_IMAGEN),
-        )
+        with st.container(key="pie-chat"):
+            entrada = st.chat_input(
+                "Describe tu problema de red…",
+                accept_file=True,
+                file_type=list(TIPOS_IMAGEN),
+            )
 
         if entrada:
             texto = (entrada.text or "").strip() or "¿Qué ves en esta imagen?"
@@ -240,11 +283,12 @@ if st.session_state.chat_abierto:
             historial.append({"role": "user", "content": texto})
 
             with conversacion:
-                with st.chat_message("user"):
+                with st.chat_message("user", avatar=AVATAR_USUARIO):
+                    marcar_mensaje_usuario()
                     if imagen_bytes:
-                        st.image(imagen_bytes, width=240)
+                        st.image(imagen_bytes, width="stretch")
                     st.markdown(texto)
-                with st.chat_message("assistant"):
+                with st.chat_message("assistant", avatar=AVATAR_BOT):
                     with st.spinner("Consultando las fichas de Cisco IOS…"):
                         respuesta = asyncio.run(
                             cadena.ainvoke({"mensajes": historial, "imagen": imagen})
