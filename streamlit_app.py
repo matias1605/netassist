@@ -172,6 +172,56 @@ st.html(
       .st-key-cuerpo-chat iframe { display: block; margin: 0 auto; }
       .st-key-pie-chat { padding: 10px 12px 12px; border-top: 1px solid #e3e8ef; background: #fff; }
       .st-key-pie-chat [data-testid="stChatInput"] > div { border-radius: 14px; }
+      .portal-hero {
+        position: relative; overflow: hidden; margin: 18px 0 30px; padding: 38px 42px;
+        border: 1px solid #d6e0e8; border-radius: 24px;
+        background:
+          linear-gradient(120deg, rgba(10, 31, 51, .97), rgba(20, 67, 87, .94)),
+          repeating-linear-gradient(0deg, transparent 0 27px, rgba(255,255,255,.04) 28px),
+          repeating-linear-gradient(90deg, transparent 0 27px, rgba(255,255,255,.04) 28px);
+        box-shadow: 0 18px 42px rgba(16, 42, 67, .16);
+      }
+      .portal-hero::after {
+        content: ""; position: absolute; width: 220px; height: 220px; right: -72px; top: -90px;
+        border: 1px solid rgba(255, 183, 77, .35); border-radius: 50%;
+        box-shadow: 0 0 0 18px rgba(255, 183, 77, .06), 0 0 0 36px rgba(255, 183, 77, .04);
+      }
+      .portal-kicker {
+        position: relative; z-index: 1; margin: 0 0 12px; color: #ffbd5a;
+        font: 700 12px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
+        letter-spacing: .14em; text-transform: uppercase;
+      }
+      .portal-hero h1 {
+        position: relative; z-index: 1; max-width: 700px; margin: 0; color: #fff;
+        font-family: Georgia, "Times New Roman", serif; font-size: clamp(2.2rem, 5vw, 4.2rem);
+        line-height: .98; letter-spacing: -.045em;
+      }
+      .portal-hero p { position: relative; z-index: 1; max-width: 680px; color: #c9dce6; font-size: 1.05rem; line-height: 1.6; margin: 18px 0 0; }
+      .portal-section-label {
+        margin: 0 0 14px; color: #12324b; font: 700 12px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
+        letter-spacing: .12em; text-transform: uppercase;
+      }
+      .practice-card {
+        min-height: 154px; padding: 22px 20px; border: 1px solid #d6e0e8; border-radius: 16px;
+        background: #fff; box-shadow: 0 8px 20px rgba(16, 42, 67, .06);
+        transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+      }
+      .practice-card:hover { transform: translateY(-4px); border-color: #efad45; box-shadow: 0 14px 28px rgba(16, 42, 67, .12); }
+      .practice-number { color: #ef9f2d; font: 700 12px ui-monospace, SFMono-Regular, Consolas, monospace; }
+      .practice-card h3 { margin: 18px 0 9px; color: #12324b; font-size: 1.12rem; }
+      .practice-card p { margin: 0; color: #607487; font-size: .92rem; line-height: 1.5; }
+      .help-panel {
+        margin-top: 30px; padding: 24px 26px; border-left: 4px solid #ef9f2d;
+        border-radius: 0 16px 16px 0; background: #fffaf1; box-shadow: 0 8px 20px rgba(90, 62, 17, .06);
+      }
+      .help-panel h2 { margin: 0 0 14px; color: #12324b; font-size: 1.35rem; }
+      .help-panel ul { margin: 0; padding-left: 22px; color: #526779; line-height: 1.8; }
+      .knowledge-note { margin-top: 18px; color: #718493; font-size: .8rem; }
+      @media (max-width: 640px) {
+        .portal-hero { padding: 28px 24px; border-radius: 18px; }
+        .portal-hero h1 { font-size: 2.45rem; }
+        .practice-card { min-height: auto; margin-bottom: 12px; }
+      }
       @media (max-width: 640px) {
         .st-key-ventana-chat { right: 16px; bottom: 96px; }
         .st-key-boton-burbuja { right: 16px; bottom: 16px; }
@@ -187,33 +237,49 @@ except Exception:
     st.stop()
 
 # --- Página de fondo: portal del laboratorio ---------------------------------------------
-st.title("Laboratorio de Redes y Conectividad I")
-st.caption("Portal de prácticas con equipos Cisco IOS · USMP · Equipo 04")
 st.markdown(
-    "Aquí encontrarás las prácticas del laboratorio. Si algo no funciona durante una práctica, "
-    "pulsa la burbuja **💬** de abajo a la derecha y pregúntale a **NetAssist**, el asistente "
-    "de soporte del laboratorio."
+    """
+    <section class="portal-hero">
+      <div class="portal-kicker">USMP · Equipo 04 · Cisco IOS</div>
+      <h1>Laboratorio de Redes y Conectividad I</h1>
+      <p>Practica, prueba y diagnostica redes con una guía clara. Cuando algo no responda, NetAssist te ayuda a encontrar el siguiente paso.</p>
+    </section>
+    """,
+    unsafe_allow_html=True,
 )
 
-st.subheader("Prácticas")
+st.markdown('<p class="portal-section-label">Rutas de aprendizaje</p>', unsafe_allow_html=True)
 practicas = [
-    ("🔌 Conectividad e interfaces", "Direccionamiento IP, interfaces caídas y pruebas con ping."),
-    ("🧭 Rutas estáticas y DNS", "Comunicación entre redes remotas y resolución de nombres."),
-    ("🔀 VLAN y SVI", "Segmentación del switch y acceso remoto de administración."),
+    ("01", "Conectividad e interfaces", "Direccionamiento IP, interfaces caídas y pruebas con ping."),
+    ("02", "Rutas estáticas y DNS", "Comunicación entre redes remotas y resolución de nombres."),
+    ("03", "VLAN y SVI", "Segmentación del switch y acceso remoto de administración."),
 ]
-for columna, (titulo, descripcion) in zip(st.columns(3), practicas):
-    with columna.container(border=True):
-        st.markdown(f"**{titulo}**")
-        st.caption(descripcion)
+for columna, (numero, titulo, descripcion) in zip(st.columns(3), practicas):
+    with columna:
+        st.markdown(
+            f'<article class="practice-card"><div class="practice-number">{numero}</div>'
+            f"<h3>{titulo}</h3><p>{descripcion}</p></article>",
+            unsafe_allow_html=True,
+        )
 
-st.subheader("Antes de pedir ayuda")
 st.markdown(
-    "- Describe el síntoma: *«la PC1 no hace ping a la PC2»*, *«la interfaz aparece down»*.\n"
-    "- Puedes adjuntar una captura de Packet Tracer (PNG, JPG o WEBP, máx. 4 MB).\n"
-    "- **No escribas IP reales ni contraseñas:** el asistente las bloquea por seguridad.\n"
-    f"- Si el problema persiste, contacta al soporte humano: {SUPPORT_CONTACT}"
+    f"""
+    <section class="help-panel">
+      <h2>Antes de pedir ayuda</h2>
+      <ul>
+        <li>Describe el síntoma: <em>«la PC1 no hace ping a la PC2»</em> o <em>«la interfaz aparece down»</em>.</li>
+        <li>Adjunta una captura de Packet Tracer (PNG, JPG o WEBP, máximo 4 MB).</li>
+        <li><strong>No escribas IP reales ni contraseñas:</strong> el asistente las bloquea por seguridad.</li>
+        <li>Si el problema persiste, contacta al soporte humano: {SUPPORT_CONTACT}</li>
+      </ul>
+    </section>
+    """,
+    unsafe_allow_html=True,
 )
-st.caption(f"Base de conocimiento de NetAssist: {resumen['fragmentos']} fichas de Cisco IOS en ChromaDB.")
+st.markdown(
+    f'<p class="knowledge-note">● Base de conocimiento activa · {resumen["fragmentos"]} fichas de Cisco IOS en ChromaDB</p>',
+    unsafe_allow_html=True,
+)
 
 # --- Botón flotante ----------------------------------------------------------------------
 with st.container(key="boton-burbuja"):
