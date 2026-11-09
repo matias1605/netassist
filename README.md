@@ -34,6 +34,26 @@ netassist/
 
 ## Requisitos previos
 
+### Inicio local preparado en Windows
+
+Haz doble clic en **Iniciar NetAssist.cmd** y abre `http://localhost:8501`.
+Para usar la interfaz HTML con FastAPI, ejecuta `& '.\Iniciar NetAssist.cmd' -Interfaz Web`
+desde PowerShell y abre `http://localhost:5500`.
+Detén la aplicación con Ctrl+C en su terminal.
+
+La instalación local usa Python en `.runtime/`, las librerías en `.venv/`,
+los modelos en `.cache/` y ChromaDB en `backend/chroma_db/`.
+No requiere instalar un servidor de base de datos ni modificar el PATH global.
+Los archivos de inicio configuran las cachés únicamente para la aplicación.
+Completa las claves de Gemini o Groq en `.env` para habilitar las respuestas del chat.
+`requirements-local.txt` incluye las dependencias de ambas interfaces y ajustes de
+compatibilidad; `requirements-local.lock.txt` registra las versiones instaladas.
+Para reinstalarlas en este entorno sin instalar paquetes globales:
+
+```powershell
+.\.runtime\uv\uv.exe pip install --python .venv/Scripts/python.exe -r requirements-local.lock.txt
+```
+
 - Python 3.11 o superior.
 - Acceso a Internet durante la instalación y la primera descarga del modelo de embeddings.
 - Claves de Google AI Studio y Groq para obtener respuestas de LLM y habilitar el failover.

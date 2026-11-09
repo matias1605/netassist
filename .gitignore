@@ -8,5 +8,6 @@
 .venv311/
 **/chroma_db/
 .cache/
+.runtime/
 *.log
 .streamlit/secrets.toml
