@@ -30,6 +30,7 @@ def _cargar_secrets() -> None:
 _cargar_secrets()
 
 from backend.cadena import crear_cadena  # noqa: E402  (después de cargar los secrets)
+from backend.acciones import obtener_acciones  # noqa: E402
 from backend.config import SUPPORT_CONTACT  # noqa: E402
 from backend.rag import RagService  # noqa: E402
 from backend.seguridad import MENSAJE_DATOS_SENSIBLES, validar_imagen  # noqa: E402
@@ -106,10 +107,22 @@ def marcar_mensaje_usuario() -> None:
 
 def nueva_conversacion() -> None:
     st.session_state.mensajes = []
+    st.session_state.borrador_accion = ""
 
 
 def alternar_chat() -> None:
     st.session_state.chat_abierto = not st.session_state.chat_abierto
+
+
+def preparar_accion(prompt: str) -> None:
+    """Carga un borrador editable sin enviar consultas al proveedor."""
+    st.session_state.borrador_accion = prompt
+
+
+def enviar_borrador() -> None:
+    """Consume el borrador una sola vez, antes de volver a crear el editor."""
+    st.session_state.solicitud_accion = st.session_state.get("borrador_accion", "").strip()
+    st.session_state.borrador_accion = ""
 
 
 if "mensajes" not in st.session_state:
@@ -136,7 +149,7 @@ st.html(
       .st-key-ventana-chat {
         position: fixed; right: 24px; bottom: 100px; z-index: 1000;
         width: min(420px, calc(100vw - 32px)) !important;
-        max-height: calc(100vh - 124px); overflow: hidden;
+        max-height: calc(100vh - 124px); overflow-y: auto;
         background: #fff; border-radius: 18px; padding: 0; gap: 0;
         box-shadow: 0 14px 40px rgba(16, 42, 67, .28);
         border: 1px solid #e3e8ef;
@@ -251,15 +264,30 @@ if st.session_state.chat_abierto:
                         st.markdown(mensaje["content"])
 
         with st.container(key="pie-chat"):
+            with st.expander("Acciones rápidas de IA"):
+                st.caption("Respuestas concisas y precisas · Datos ficticios de laboratorio")
+                for accion in obtener_acciones():
+                    st.button(
+                        accion["titulo"], key=f"accion-{accion['id']}",
+                        help=accion["descripcion"], on_click=preparar_accion,
+                        args=(accion["prompt"],),
+                        disabled=bool(st.session_state.get("borrador_accion", "")),
+                    )
+                st.caption("Carga un ejemplo y revísalo antes de enviarlo. La propuesta requiere verificación en laboratorio.")
+                if st.session_state.get("borrador_accion"):
+                    st.text_area("Datos y solicitud editables", key="borrador_accion", height=160)
+                    st.button("Enviar a IA", key="enviar-accion", on_click=enviar_borrador)
+                    st.button("Descartar borrador", on_click=preparar_accion, args=("",))
             entrada = st.chat_input(
                 "Describe tu problema de red…",
                 accept_file=True,
                 file_type=list(TIPOS_IMAGEN),
             )
 
-        if entrada:
-            texto = (entrada.text or "").strip() or "¿Qué ves en esta imagen?"
-            archivo = entrada.files[0] if entrada.files else None
+        texto_accion = st.session_state.pop("solicitud_accion", "")
+        if entrada or texto_accion:
+            texto = ((entrada.text if entrada else texto_accion) or "").strip() or "¿Qué ves en esta imagen?"
+            archivo = entrada.files[0] if entrada and entrada.files else None
             imagen = None
             imagen_bytes = None
 

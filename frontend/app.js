@@ -206,6 +206,39 @@ async function fetchContact() {
   }
 }
 
+async function loadQuickActions() {
+  const list = document.getElementById("quick-actions-list");
+  const note = document.getElementById("quick-actions-note");
+  try {
+    const response = await fetch(`${API_BASE}/acciones`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const actions = await response.json();
+    if (!Array.isArray(actions) || !actions.length) throw new Error("Sin acciones disponibles");
+    for (const action of actions) {
+      if (typeof action.titulo !== "string" || typeof action.prompt !== "string") continue;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "quick-action-button";
+      button.textContent = action.titulo;
+      button.title = action.descripcion || action.titulo;
+      button.addEventListener("click", () => {
+        if (sendButton.disabled) return;
+        if (inputElement.value.trim() || imagenAdjunta) {
+          note.textContent = "Envía o borra tu borrador y quita el adjunto antes de elegir otra acción.";
+          return;
+        }
+        inputElement.value = action.prompt;
+        note.textContent = "Datos ficticios cargados. Revisa o edita el borrador y pulsa Enviar. La propuesta requiere verificación en laboratorio.";
+        inputElement.focus();
+      });
+      list.appendChild(button);
+    }
+    note.textContent = "Carga un ejemplo editable. Los botones no envían consultas ni ejecutan comandos.";
+  } catch (error) {
+    note.textContent = "No se pudieron cargar las acciones. Puedes escribir tu consulta o volver a cargar la página.";
+  }
+}
+
 function quitarAdjunto() {
   imagenAdjunta = null;
   fileInput.value = "";
@@ -357,3 +390,4 @@ if (window.mermaid) {
 
 restoreHistory();
 fetchContact();
+loadQuickActions();

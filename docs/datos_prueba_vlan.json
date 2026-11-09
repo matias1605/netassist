@@ -1,0 +1,10 @@
+{
+  "nombre": "Segmentación de Administración y Laboratorio",
+  "entorno": "Datos ficticios para laboratorio; configuración pendiente de verificar en simulador",
+  "equipo": {"alias": "SW1", "modelo": "Cisco Catalyst 2960", "ios": "15.0"},
+  "vlans": [
+    {"id": 10, "nombre": "ADMINISTRACION", "puerto": "GigabitEthernet0/1", "host": "PC_ADMIN"},
+    {"id": 20, "nombre": "LABORATORIO", "puerto": "GigabitEthernet0/2", "host": "PC_LAB"}
+  ],
+  "objetivo": "Separar ambos grupos con puertos de acceso; sin comunicación entre VLAN, sin enlaces trunk y sin direccionamiento IP"
+}

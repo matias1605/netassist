@@ -146,6 +146,7 @@ Las claves van solo en los Secrets de Streamlit o en `.env`; nunca en el reposit
 
 ## Endpoints
 
+- `GET /acciones`: devuelve borradores de configuración y topología con el escenario ficticio compartido de `docs/datos_prueba_vlan.json`.
 - `POST /chat`: recibe `{ "messages": [{ "role": "user|assistant", "content": "..." }] }`, recupera hasta cuatro fragmentos relevantes y devuelve `{ "reply": "...", "contact": "..." }`.
 - `POST /reindexar`: reconstruye el índice desde los documentos actuales de `docs/`.
 - `GET /health`: informa el estado de la API y del índice RAG.
@@ -177,3 +178,11 @@ Antes de llamar al modelo, el backend revisa el último mensaje del usuario y, s
 - Los manuales de ejemplo son referencias introductorias, no sustituyen la documentación oficial ni una validación en laboratorio.
 - La búsqueda semántica y su umbral deben validarse con el corpus de la institución.
 - No ejecutes comandos de cambio sin verificar modelo, versión, topología, permisos y respaldo.
+
+## Acciones rápidas y próximas fases
+
+Ambas interfaces incluyen **Generar configuración** y **Generar topología** con datos de prueba de VLAN. Los botones cargan una solicitud editable; revisa los datos y pulsa **Enviar** o **Enviar a IA**. No ejecutan comandos ni verifican equipos. En la web, envía o borra el borrador existente antes de cargar otro ejemplo; en Streamlit puedes descartarlo.
+
+La IA tiene instrucciones de responder de forma concisa y precisa, usando comandos por equipo, verificaciones y advertencias breves. Esta guía de respuesta no sustituye validadores ni pruebas en laboratorio.
+
+El alcance, los entregables y los criterios de aceptación se encuentran en [FASES_IMPLEMENTACION.md](FASES_IMPLEMENTACION.md). El primer escenario previsto es VLAN con puertos de acceso; la persistencia de casos y los validadores siguen pendientes.

@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .config import FRONTEND_ORIGIN, SUPPORT_CONTACT
+from .acciones import obtener_acciones
 from .cadena import crear_cadena
 from .llm import MENSAJE_FALLBACK
 from .rag import RagService
@@ -85,6 +86,12 @@ async def health(request: Request) -> dict[str, object]:
 async def contacto() -> dict[str, str]:
     """Entrega al frontend la vía de contacto configurada en el backend."""
     return {"contact": SUPPORT_CONTACT}
+
+
+@app.get("/acciones")
+async def acciones() -> list[dict[str, str]]:
+    """Borradores editables de acciones rápidas con datos ficticios de laboratorio."""
+    return obtener_acciones()
 
 
 @app.post("/reindexar")

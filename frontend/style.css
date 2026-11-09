@@ -35,6 +35,16 @@ button { cursor: pointer; }
 .chat-heading .assistant-avatar { width: 38px; height: 38px; border-radius: 13px; }
 .status-dot { display: inline-block; width: 7px; height: 7px; margin-right: 4px; border-radius: 50%; background: #31ae78; }
 .messages { flex: 1; padding: 24px clamp(16px, 4vw, 36px); overflow-y: auto; scroll-behavior: smooth; }
+.quick-actions { padding: 12px 22px; border-bottom: 1px solid var(--line); background: #f5faff; }
+.quick-actions-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; font-size: 12px; }
+.quick-actions-heading span, .quick-actions p { color: #52677d; font-size: 11px; }
+.quick-actions p { margin: 8px 0 0; line-height: 1.4; }
+.quick-actions-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 9px; }
+.quick-action-button { padding: 7px 11px; border: 1px solid #b7cfe9; border-radius: 6px; background: white; color: #164975; font-size: 12px; font-weight: 650; }
+.quick-action-button:hover { border-color: #2868d7; background: #e9f3ff; }
+.quick-action-button:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+.messages { min-height: 100px; }
+.chat-heading, .quick-actions, .composer, .adjunto, .typing { flex-shrink: 0; }
 .message { display: flex; flex-direction: column; max-width: min(88%, 670px); margin: 0 0 20px; }
 .message-user { align-items: flex-end; margin-left: auto; }
 .bubble { padding: 14px 16px; border: 1px solid var(--line); border-radius: 4px 16px 16px; background: #f7f9fc; line-height: 1.6; overflow-wrap: anywhere; }
