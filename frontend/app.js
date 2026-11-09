@@ -174,10 +174,16 @@ function appendMessage(role, content, persist = true, imagenUrl = null) {
     paragraph.textContent = content;
     bubble.appendChild(paragraph);
   }
-  const meta = document.createElement("span");
-  meta.className = "message-meta";
-  meta.textContent = role === "assistant" ? "Nexo" : "Tú";
-  article.append(bubble, meta);
+  if (role === "assistant") {
+    // Nexo responde en persona: su avatar acompaña cada respuesta (mascota.js lo anima).
+    const avatar = document.createElement("div");
+    avatar.className = "message-avatar";
+    avatar.dataset.nexo = "";
+    avatar.setAttribute("aria-hidden", "true");
+    avatar.append(document.getElementById("nexo-template").content.cloneNode(true));
+    article.append(avatar);
+  }
+  article.append(bubble);
   messagesElement.appendChild(article);
   messagesElement.scrollTop = messagesElement.scrollHeight;
   if (persist) {

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0f1a2b">
   <title>NetAssist | Laboratorio de redes</title>
-  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
   <!-- Mascota Nexo: se clona en la cabecera del chat, en el escenario y en el lanzador. -->
@@ -56,16 +56,10 @@
       </a>
       <nav class="side-nav" aria-label="Espacio de trabajo">
         <p class="side-label">Espacio de trabajo</p>
-        <a href="#presentacion" data-ir="presentacion"><span class="nav-icon" aria-hidden="true">←</span>Presentación</a>
+        <a href="#presentacion" data-ir="presentacion"><span class="nav-icon" aria-hidden="true">◈</span>Presentación</a>
         <a href="#laboratorio" data-ir="laboratorio" class="activo"><span class="nav-icon" aria-hidden="true">▦</span>Laboratorio<span class="nav-dot" aria-hidden="true"></span></a>
         <a href="#practicas" data-ir="practicas"><span class="nav-icon" aria-hidden="true">▤</span>Mis prácticas</a>
       </nav>
-      <div class="side-externo">
-        <p class="side-label">Tu laboratorio externo</p>
-        <h3>Cisco Packet Tracer</h3>
-        <p>Prepara aquí tu práctica. Aplica los comandos en el simulador y vuelve con las salidas.</p>
-        <span class="chip-manual">Intercambio manual</span>
-      </div>
       <div class="side-footer">
         <p>¿Necesitas ayuda?</p>
         <button id="contact-button" class="link-side" type="button">Contactar al docente <span aria-hidden="true">↗</span></button>
@@ -244,11 +238,13 @@
     <!-- Chat propio de Nexo: panel flotante -->
     <section id="chat" class="chat-panel" aria-label="Conversación con Nexo">
       <header class="chat-header">
-        <div class="chat-avatar" data-nexo="mini"></div>
         <div class="chat-title">
-          <h2>Nexo <span>/ NetAssist</span></h2>
+          <h2>Nexo <span class="chat-online"><i aria-hidden="true"></i>En línea</span></h2>
           <p id="chat-practica">Sin práctica abierta</p>
         </div>
+        <button id="new-chat-button" class="chat-icon-button" type="button" aria-label="Limpiar chat" title="Limpiar chat">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4"/></svg>
+        </button>
         <button id="chat-expand" class="chat-icon-button" type="button" aria-label="Ampliar chat" title="Ampliar">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>
         </button>
@@ -256,16 +252,6 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>
         </button>
       </header>
-
-      <div class="chat-subheader">
-        <span><span class="status-dot"></span> Tu compañero de laboratorio</span>
-        <button id="new-chat-button" class="link-button" type="button">Limpiar chat</button>
-      </div>
-
-      <div class="nexo-stage" id="nexo-stage">
-        <button class="nexo-stage-bot" id="nexo-bot" type="button" aria-label="Saludar a Nexo" data-nexo="stage"></button>
-        <p class="nexo-speech" id="nexo-speech" aria-live="polite">¡Hola! Soy Nexo. ¿Vemos tu red juntos?</p>
-      </div>
 
       <details class="quick-actions" aria-label="Acciones rápidas de IA" open>
         <summary class="quick-actions-heading"><strong>Acciones rápidas</strong><span>Respuestas concisas y precisas</span></summary>
@@ -275,15 +261,16 @@
 
       <div id="messages" class="messages" aria-live="polite" aria-label="Mensajes">
         <article class="message message-assistant">
+          <div class="message-avatar" data-nexo aria-hidden="true"></div>
           <div class="bubble">
             <p>¡Hola! Soy Nexo, tu compañero de NetAssist. Cuéntame qué problema tienes y, si puedes, incluye el modelo del equipo Cisco, la versión de IOS y el error exacto.</p>
             <p>Te guiaré paso a paso. Evitaré repetir las verificaciones que ya hayas probado.</p>
           </div>
-          <span class="message-meta">Nexo</span>
         </article>
       </div>
 
       <div id="typing-indicator" class="typing hidden" role="status">
+        <div class="message-avatar" data-nexo aria-hidden="true"></div>
         <span></span><span></span><span></span><em>Nexo está pensando…</em>
       </div>
 
@@ -330,9 +317,9 @@
     </div>
   </dialog>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js" defer></script>
-  <script src="app.js?v=10" defer></script>
+  <script src="app.js?v=11" defer></script>
   <script src="laboratorio.js?v=4" defer></script>
-  <script src="mascota.js?v=3" defer></script>
+  <script src="mascota.js?v=4" defer></script>
   <script src="vistas.js?v=2" defer></script>
 </body>
 </html>
