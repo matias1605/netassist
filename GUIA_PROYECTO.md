@@ -39,6 +39,8 @@ Navegador (frontend)              Servidor (backend Python)
 4. Se arma el **prompt** con ese contexto y se llama al LLM: primero **Gemini**, y si falla, **Groq**.
 5. Se devuelve la respuesta al navegador, que la muestra con formato (bloques de código, etc.).
 
+Los pasos 2 a 4 están encadenados con **LangChain** en `backend/cadena.py`. La misma cadena la usan la web (vía FastAPI) y la app de **Streamlit** (`streamlit_app.py`).
+
 ---
 
 ## 3. Requisitos
@@ -124,6 +126,13 @@ py -3.11 -m http.server 5500
 
 Abre el chat en: **http://localhost:5500**
 
+**Alternativa — interfaz Streamlit (una sola terminal):**
+```powershell
+.\.venv\Scripts\Activate.ps1
+streamlit run streamlit_app.py
+```
+Abre **http://localhost:8501**. Para publicarla en Streamlit Community Cloud, sigue la sección *Interfaz Streamlit y despliegue* del `README.md`.
+
 ---
 
 ## 7. Cómo usarlo
@@ -154,6 +163,7 @@ El botón **"Nueva conversación"** limpia el historial. **"Hablar con un docent
 netassist/
 ├── backend/
 │   ├── main.py          # API FastAPI y endpoints
+│   ├── cadena.py        # Orquestación con LangChain
 │   ├── llm.py           # Gemini + Groq con failover
 │   ├── rag.py           # Indexado y búsqueda (ChromaDB)
 │   ├── prompts.py       # Prompt del sistema (comportamiento)
@@ -168,6 +178,9 @@ netassist/
 │   └── style.css
 ├── pruebas/
 │   └── casos_de_prueba.md     # 20 casos de evaluación
+├── .streamlit/                # Tema y ejemplo de Secrets
+├── streamlit_app.py           # Interfaz Streamlit
+├── requirements.txt           # Dependencias para Streamlit Cloud
 ├── .env.example
 └── README.md
 ```

@@ -58,7 +58,8 @@ async def _llamar_gemini(
         contenido[-1]["parts"].insert(
             0, {"inlineData": {"mimeType": imagen["mime"], "data": imagen["data"]}}
         )
-    timeout = LLM_TIMEOUT_SECONDS * 2 if imagen else LLM_TIMEOUT_SECONDS
+    # Con imagen Gemini puede tardar más de 25 s; se le da más margen antes de pasar a Groq.
+    timeout = LLM_TIMEOUT_SECONDS * 3 if imagen else LLM_TIMEOUT_SECONDS
     url = (
         "https://generativelanguage.googleapis.com/v1beta/models/"
         f"{quote(GEMINI_MODEL, safe='')}:generateContent"

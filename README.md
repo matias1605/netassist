@@ -1,6 +1,6 @@
 # NetAssist
 
-Prototipo educativo de asistente de soporte para Cisco IOS. Usa FastAPI, recuperación local de manuales (RAG), Gemini con failover a Groq y una interfaz web en HTML, CSS y JavaScript sin frameworks. El soporte para MikroTik RouterOS queda como trabajo futuro.
+Prototipo educativo de asistente de soporte para Cisco IOS. Usa recuperación local de manuales (RAG con ChromaDB), orquestación con LangChain, Gemini con failover a Groq, y dos interfaces: una app en Streamlit (desplegable en Streamlit Community Cloud) y una web en HTML, CSS y JavaScript servida por FastAPI. El soporte para MikroTik RouterOS queda como trabajo futuro.
 
 ## Estructura
 
@@ -8,10 +8,12 @@ Prototipo educativo de asistente de soporte para Cisco IOS. Usa FastAPI, recuper
 netassist/
 ├── backend/
 │   ├── main.py
+│   ├── cadena.py
 │   ├── llm.py
 │   ├── rag.py
 │   ├── prompts.py
 │   ├── config.py
+│   ├── seguridad.py
 │   ├── __init__.py
 │   └── requirements.txt
 ├── docs/
@@ -20,6 +22,11 @@ netassist/
 │   ├── index.html
 │   ├── style.css
 │   └── app.js
+├── .streamlit/
+│   ├── config.toml
+│   └── secrets.toml.example
+├── streamlit_app.py
+├── requirements.txt
 ├── .env.example
 ├── .gitignore
 └── README.md
@@ -93,6 +100,29 @@ netassist/
    ```
 
 8. Abre `http://localhost:5500` en el navegador. Si cambias el host o puerto del frontend, actualiza `FRONTEND_ORIGIN` en `.env` y reinicia el backend.
+
+## Interfaz Streamlit y despliegue
+
+Además de la web en HTML/JS, NetAssist tiene una interfaz en **Streamlit** (`streamlit_app.py`). Las dos usan la misma orquestación con **LangChain** (`backend/cadena.py`): bloqueo de datos sensibles → recuperación de fichas en ChromaDB → Gemini, con Groq como respaldo (`with_fallbacks`).
+
+**En local** (con el `.env` configurado):
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+streamlit run streamlit_app.py
+```
+
+Abre `http://localhost:8501`. No hace falta arrancar FastAPI ni el servidor del frontend.
+
+**En Streamlit Community Cloud:**
+
+1. Entra a https://share.streamlit.io con tu cuenta de GitHub.
+2. *Create app* → elige el repositorio, la rama `main` y el archivo `streamlit_app.py`.
+3. En *Advanced settings*, elige **Python 3.11** y pega en *Secrets* el contenido de `.streamlit/secrets.toml.example` con tus claves reales.
+4. *Deploy*. El primer arranque tarda varios minutos: instala PyTorch (versión CPU) y descarga el modelo de embeddings.
+
+Las claves van solo en los Secrets de Streamlit o en `.env`; nunca en el repositorio.
 
 ## Endpoints
 

@@ -9,13 +9,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .config import FRONTEND_ORIGIN, SUPPORT_CONTACT
-from .llm import MENSAJE_FALLBACK, llamar_llm
-from .rag import RagService, formatear_contexto
+from .cadena import crear_cadena
+from .llm import MENSAJE_FALLBACK
+from .rag import RagService
 from .seguridad import MENSAJE_DATOS_SENSIBLES, contiene_datos_sensibles, validar_imagen
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 rag_service = RagService()
+cadena = crear_cadena(rag_service)
 
 
 @asynccontextmanager
@@ -123,14 +125,7 @@ async def chat(solicitud: SolicitudChat, request: Request) -> RespuestaChat:
     try:
         if request.app.state.rag_error is not None:
             raise RuntimeError("El índice RAG no está disponible.")
-        consulta = next(
-            mensaje.content for mensaje in reversed(solicitud.messages) if mensaje.role == "user"
-        )
-        fragmentos = (
-            rag_service.buscar_con_imagen(consulta) if imagen else rag_service.buscar(consulta)
-        )
-        contexto = formatear_contexto(fragmentos)
-        respuesta = await llamar_llm(mensajes, contexto, imagen)
+        respuesta = await cadena.ainvoke({"mensajes": mensajes, "imagen": imagen})
         return RespuestaChat(reply=respuesta, contact=SUPPORT_CONTACT)
     except Exception as error:
         logger.exception("No se pudo completar la solicitud de chat.")
