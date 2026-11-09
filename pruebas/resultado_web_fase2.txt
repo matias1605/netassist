@@ -1,0 +1,5 @@
+OK: Chrome en modo sin ventana, escritorio 1440 px y móvil 390 px.
+Revisión sin IA, confirmación, generación simulada, edición invalida revisión y resultado, faltantes, descarte, carga de ejemplo, añadir/quitar conexión, topología, fallo recuperable y acciones rápidas.
+Sin errores JavaScript ni desbordamiento horizontal en móvil.
+API interceptada; sin proveedores reales; CDN bloqueado.
+Capturas: pruebas/evidencias/fase2-web-escritorio.png y pruebas/evidencias/fase2-web-movil.png.

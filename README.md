@@ -204,3 +204,32 @@ Ambas interfaces incluyen **Generar configuración** y **Generar topología** co
 La IA tiene instrucciones de responder de forma concisa y precisa, usando comandos por equipo, verificaciones y advertencias breves. Esta guía de respuesta no sustituye validadores ni pruebas en laboratorio.
 
 El alcance, los entregables y los criterios de aceptación se encuentran en [FASES_IMPLEMENTACION.md](FASES_IMPLEMENTACION.md). El primer escenario previsto es VLAN con puertos de acceso; la persistencia de casos y los validadores siguen pendientes.
+
+## Espacio de laboratorio (fase 2)
+
+En web y Streamlit puedes preparar una práctica de VLAN con un switch y hasta 16 conexiones:
+
+1. Completa el nombre, alias, modelo/IOS, VLAN, puertos, equipos conectados y requisitos, o carga el ejemplo compartido.
+2. Pulsa **Revisar datos**. Se muestran juntos los campos faltantes y la solicitud que se enviará; este paso no consulta a la IA.
+3. Confirma la revisión y pulsa **Generar propuesta**. El resultado queda identificado como pendiente de verificación en laboratorio.
+
+Editar datos descarta la revisión y el resultado anteriores; debes revisarlos nuevamente. El modelo y la versión de IOS son obligatorios para configuración. La topología permite dejarlos vacíos. El chat y las acciones rápidas siguen disponibles por separado.
+
+Este formulario comprueba campos y límites de tamaño. Los validadores técnicos de VLAN/interfaces y los casos persistentes corresponden a la fase 3. No ejecuta comandos ni marca una práctica como comprobada. El resultado solo permanece en la página/sesión actual.
+
+API adicional: `GET /laboratorio/ejemplo`, `POST /laboratorio/preparar` (tarea estructurada) y `POST /laboratorio/generar` (`tarea` y `confirmado`). Ambas rutas de escritura utilizan las reglas compartidas de laboratorio.
+
+Pruebas de servicios y Streamlit:
+
+```powershell
+.venv/Scripts/python.exe -m unittest discover -s pruebas/automatizadas -v
+```
+
+Smoke opcional con Chrome instalado y la dependencia de `requirements-pruebas.txt`:
+
+```powershell
+.runtime/uv/uv.exe pip install --python .venv/Scripts/python.exe -r requirements-pruebas.txt
+.venv/Scripts/python.exe -m pruebas.verificar_web_fase2
+```
+
+Resultados, capturas y límites en `pruebas/verificacion_fase2.md`.

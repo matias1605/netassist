@@ -20,11 +20,57 @@
       </div>
     </header>
 
-    <section class="chat-panel" aria-label="Conversación con NetAssist">
+    <section class="laboratorio" aria-labelledby="laboratorio-titulo">
+      <header class="laboratorio-heading">
+        <div><p class="lab-eyebrow">VLAN · Puertos de acceso</p><h1 id="laboratorio-titulo">Espacio de laboratorio</h1>
+        <p>Prepara los datos de un switch y revisa una propuesta antes de probarla en el simulador.</p></div>
+        <a href="#chat" class="lab-link">Chat y acciones rápidas ↓</a>
+      </header>
+      <div class="laboratorio-grid">
+        <form id="laboratorio-form" class="lab-sheet">
+          <h2>1. Datos de la práctica</h2>
+          <p class="lab-help">Solo datos ficticios. Un switch, puertos de acceso; sin IP, trunk ni enrutamiento entre VLAN.</p>
+          <div class="lab-fields">
+            <label>Tipo de tarea<select name="tipo"><option value="configuracion">Generar configuración</option><option value="topologia">Generar topología</option></select></label>
+            <label>Nombre de la práctica<input name="nombre" maxlength="120"></label>
+            <label>Alias del switch<input name="alias" maxlength="64"></label>
+            <label>Modelo<input name="modelo" maxlength="120"></label>
+            <label>Versión de IOS<input name="ios" maxlength="80"></label>
+          </div>
+          <p class="lab-help">Modelo e IOS son obligatorios para configuración. Si no los conoces, déjalos vacíos y revisa qué falta.</p>
+          <fieldset class="lab-ports"><legend>VLAN y equipos conectados</legend><div id="laboratorio-puertos"></div></fieldset>
+          <button id="lab-add" class="button button-quiet" type="button">Añadir conexión</button>
+          <label class="lab-objective">Objetivo y requisitos<textarea name="objetivo" rows="4" maxlength="1500"></textarea></label>
+          <div class="lab-buttons"><button class="button button-contact" type="submit">Revisar datos</button><button id="lab-example" class="button button-quiet" type="button">Cargar ejemplo</button></div>
+          <p id="lab-status" role="status" class="lab-help">Cargando ejemplo compartido…</p>
+        </form>
+        <div class="lab-output">
+          <section class="lab-sheet" aria-labelledby="lab-review-title">
+            <h2 id="lab-review-title">2. Revisión</h2>
+            <p id="lab-review-empty" class="lab-help">Completa el formulario y pulsa Revisar datos. Este paso no consulta a la IA.</p>
+            <div id="lab-review" class="hidden">
+              <p id="lab-missing" role="status"></p>
+              <p class="lab-help">Se revisan campos presentes. Validación técnica de VLAN y puertos: pendiente.</p>
+              <details><summary>Datos y solicitud que se enviarán</summary><pre id="lab-draft" class="lab-draft"></pre></details>
+              <label class="lab-confirm"><input id="lab-confirm" type="checkbox"> Revisé estos datos ficticios y quiero generar una propuesta.</label>
+              <div class="lab-buttons"><button id="lab-generate" class="button button-contact" type="button" disabled>Generar propuesta</button><button id="lab-discard" class="button button-quiet" type="button">Descartar revisión</button></div>
+            </div>
+          </section>
+          <section class="lab-sheet" aria-labelledby="lab-result-title" aria-live="polite">
+            <h2 id="lab-result-title">3. Resultado</h2>
+            <p id="lab-result-state" class="lab-state">Sin propuesta</p>
+            <p class="lab-help">Comprobación en laboratorio: no realizada. Generar una respuesta no ejecuta comandos ni certifica conectividad.</p>
+            <div id="lab-result" class="bubble hidden"></div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section id="chat" class="chat-panel" aria-label="Conversación con NetAssist">
       <div class="chat-heading">
         <div class="assistant-avatar" aria-hidden="true">N</div>
         <div>
-          <h1>Asistente de redes</h1>
+          <h2>Asistente de redes</h2>
           <p><span class="status-dot"></span> Disponible para Cisco IOS</p>
         </div>
       </div>
@@ -86,6 +132,7 @@
     </div>
   </dialog>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js" defer></script>
-  <script src="app.js?v=7" defer></script>
+  <script src="app.js?v=8" defer></script>
+  <script src="laboratorio.js?v=1" defer></script>
 </body>
 </html>

@@ -31,6 +31,7 @@ _cargar_secrets()
 
 from backend.cadena import crear_cadena  # noqa: E402  (después de cargar los secrets)
 from backend.acciones import obtener_acciones  # noqa: E402
+from laboratorio_ui import mostrar_laboratorio
 from backend.config import SUPPORT_CONTACT  # noqa: E402
 from backend.rag import RagService  # noqa: E402
 from backend.seguridad import MENSAJE_DATOS_SENSIBLES, validar_imagen  # noqa: E402
@@ -209,6 +210,9 @@ st.markdown(
     "de soporte del laboratorio."
 )
 
+mostrar_laboratorio(cadena, mostrar_respuesta)
+
+st.divider()
 st.subheader("Prácticas")
 practicas = [
     ("🔌 Conectividad e interfaces", "Direccionamiento IP, interfaces caídas y pruebas con ping."),

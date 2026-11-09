@@ -14,6 +14,7 @@ from starlette.concurrency import run_in_threadpool
 from .config import FRONTEND_ORIGIN, SUPPORT_CONTACT
 from .acciones import obtener_acciones
 from .cadena import crear_cadena
+from .laboratorio import TareaLaboratorio, ejemplo_laboratorio, preparar_tarea, generar_tarea
 from .llm import MENSAJE_FALLBACK
 from .rag import RagService
 from .seguridad import MENSAJE_DATOS_SENSIBLES, contiene_datos_sensibles, validar_imagen, validar_historial
@@ -156,3 +157,40 @@ async def chat(solicitud: SolicitudChat, request: Request) -> RespuestaChat:
     except Exception as error:
         logger.error("No se pudo completar el chat. tipo=%s", type(error).__name__)
         return RespuestaChat(reply=MENSAJE_FALLBACK, contact=SUPPORT_CONTACT)
+
+
+class GeneracionLaboratorio(BaseModel):
+    tarea: TareaLaboratorio
+    confirmado: bool = False
+
+
+@app.get("/laboratorio/ejemplo")
+async def laboratorio_ejemplo() -> dict:
+    return ejemplo_laboratorio()
+
+
+@app.post("/laboratorio/preparar")
+async def laboratorio_preparar(tarea: TareaLaboratorio) -> dict:
+    try:
+        return preparar_tarea(tarea)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.post("/laboratorio/generar")
+async def laboratorio_generar(solicitud: GeneracionLaboratorio, request: Request) -> dict:
+    try:
+        # Primero revisar incluso si el índice está caído, para informar datos faltantes.
+        revision = preparar_tarea(solicitud.tarea)
+        if not solicitud.confirmado or revision["faltantes"]:
+            raise ValueError("Revisa los datos, completa los campos faltantes y confirma antes de generar.")
+        if request.app.state.rag_error is not None:
+            raise HTTPException(status_code=503, detail="La base de conocimiento no está disponible. Intenta más tarde.")
+        return await generar_tarea(solicitud.tarea, solicitud.confirmado, cadena)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.error("Falló la tarea de laboratorio. tipo=%s", type(error).__name__)
+        raise HTTPException(status_code=503, detail="No se pudo generar la propuesta. Intenta nuevamente.") from error

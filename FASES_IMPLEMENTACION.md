@@ -30,7 +30,7 @@ Este avance prepara la interacción. No equivale a un generador validado, un dia
 | Fase | Estado | Entregables | Criterio de cierre |
 |---|---|---|---|
 | 1. Fortalecer la base | Completada (pruebas locales, 09/11/2026) | Política de datos coherente, revisión de historial completo, límites globales, recuperación contextual, reindexación segura y pruebas del respaldo | Un fallo de reconstrucción conserva el índice previo; fallos inducidos permiten usar el respaldo; información bloqueada no llega al proveedor desde turnos anteriores. |
-| 2. Espacio de laboratorio | En curso | Acciones rápidas ya añadidas; pendientes formulario de equipos, requisitos y panel de resultados | Se inicia una tarea desde un formulario, se revisan los datos y se diferencia claramente propuesta de resultado comprobado. |
+| 2. Espacio de laboratorio | Completada (pruebas locales, 09/11/2026) | Acciones rápidas conservadas; formulario de equipo, VLAN/conexiones y requisitos; revisión explícita y panel de resultados en ambas interfaces | Se inicia una tarea desde un formulario, se revisan los datos y se diferencia claramente propuesta de resultado comprobado. |
 | 3. Generador VLAN | Por hacer | Solicitud estructurada, validadores, comandos por equipo, verificaciones y persistencia mínima del caso | Faltan datos → se solicitan; VLAN/puertos inválidos → se rechazan; un caso de referencia se comprueba en simulador y puede reabrirse. |
 | 4. Diagnóstico con evidencia | Por hacer | Analizador de salidas del escenario, pasos y resultados persistentes, fuentes | Cada observación referencia evidencia; no se repiten pasos completados y los resultados ambiguos piden aclaración. |
 | 5. Casos e informes | Por hacer | Lista de casos, estados, resumen exportable, acceso por usuario cuando corresponda | Se recuperan requisitos, propuestas, fuentes y evidencias; un usuario no accede a casos ajenos. |
@@ -54,7 +54,7 @@ Este avance prepara la interacción. No equivale a un generador validado, un dia
 4. Guardar el caso y producir su topología a partir de los mismos datos.
 5. Probar manualmente en simulador y adjuntar las salidas de verificación.
 
-Las acciones actuales cubren el primer paso como borrador de chat. Los siguientes requieren implementar los servicios y validadores descritos.
+Las acciones rápidas cubren el primer paso como borrador de chat. La fase 2 añade el formulario del segundo paso, revisión de campos y generación mediante la cadena existente. La validación técnica, persistencia y comprobación en simulador de los pasos siguientes corresponden a la fase 3.
 
 ## Evaluación prevista
 
@@ -88,3 +88,20 @@ Estado: **completada en el alcance local de una instancia**, con 18 pruebas auto
 Verificación adicional: compilación de Python, revisión de sintaxis de `frontend/app.js` y `git diff --check`, sin errores. Dependencias directas Pillow y filelock declaradas en ambas modalidades y alineadas con las versiones del archivo de entorno local.
 
 Límites del cierre: filtro heurístico, revisión manual de adjuntos, sin prueba visual de navegador ni llamadas a proveedores reales, sin prueba en simulador. El índice se probó con Chroma real en memoria y embeddings deterministas; publicación y bloqueo en directorio temporal. No se modificó el índice local del proyecto. Tras actualizar el corpus, ejecutar una reindexación administrativa para incorporar el ejemplo DNS de documentación. Las generaciones anteriores se conservan para lectores abiertos y no se limpian automáticamente; otras instancias abiertas actualizan su generación al reiniciar. No se garantiza coordinación sobre almacenamiento de red ni alta disponibilidad.
+
+## Resultado de la fase 2 — 9 de noviembre de 2026
+
+Estado: **completada para el espacio de laboratorio local**. Se puede iniciar una tarea desde un formulario, revisar la solicitud y generar una respuesta separada de una comprobación real. Se conservan el chat, las dos acciones rápidas con borradores editables y las instrucciones compartidas de precisión y brevedad.
+
+| Entregable | Implementación y resultado |
+|---|---|
+| Formulario de laboratorio | Web y Streamlit: tipo de tarea (configuración/topología), nombre, alias del switch, modelo/IOS, conexiones con VLAN/nombre/puerto/host y objetivo/requisitos. Un switch y de 1 a 16 conexiones; datos ficticios, sin IP, trunk ni enrutamiento. Ejemplo común de `docs/datos_prueba_vlan.json`. |
+| Preparación compartida | `backend/laboratorio.py` concentra modelos, ejemplo, campos faltantes, prompt y generación. API web: `GET /laboratorio/ejemplo`, `POST /laboratorio/preparar` y `POST /laboratorio/generar`; Streamlit utiliza el mismo servicio directamente. |
+| Revisión antes de generar | Revisar datos no llama a la IA. Los faltantes se muestran juntos; modelo e IOS se requieren para configuración. Se presenta la solicitud y se exige confirmación. Editar cualquier dato invalida revisión, confirmación y resultado anterior. Descartar permite seguir editando sin generar. |
+| Panel de resultados | Estados sin propuesta, respuesta generada y fallo recuperable. Validación técnica siempre pendiente y comprobación en laboratorio no realizada. La caída total de proveedores se muestra como aviso sin propuesta. La generación no ejecuta comandos. |
+| Reglas y límites | Campos y filas acotados, filtro de datos y presupuesto global de fase 1. No se mezclan los datos del formulario con el historial del chat. La generación reutiliza la cadena compartida y su respaldo. |
+| Interfaz y regresiones | 31 pruebas automatizadas satisfactorias (18 de fase 1 y 13 nuevas), incluidas dos pruebas interactivas de Streamlit. Smoke en Chrome con API simulada: revisión, confirmación, edición, faltantes, descarte, ejemplo, conexiones, topología, error recuperable y acciones rápidas. Capturas de escritorio y móvil de 390 px, sin desbordamiento horizontal ni errores JavaScript. |
+
+Evidencias: `pruebas/verificacion_fase2.md`, `pruebas/resultado_fase2.txt`, `pruebas/resultado_web_fase2.txt` y `pruebas/evidencias/fase2-web-*.png`. Compilación de Python, sintaxis de ambos scripts JavaScript y `git diff --check`: correctos.
+
+Límites: revisión de campos presentes y tamaños, no validador técnico de rangos VLAN, sintaxis de puertos, asignaciones duplicadas ni soporte del modelo. Los valores del formulario son datos declarados, no observados en dispositivos. No hay casos persistentes; el resultado del formulario se conserva solo mientras la página/sesión permanece abierta. No se probaron proveedores reales ni simulador. El smoke del navegador simula la API y bloquea el CDN; no valida Mermaid ni conecta todo el flujo con un proveedor real. Streamlit se verifica con AppTest, sin captura de navegador. La fase 3 permanece por hacer.
