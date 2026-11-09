@@ -176,7 +176,7 @@ function appendMessage(role, content, persist = true, imagenUrl = null) {
   }
   const meta = document.createElement("span");
   meta.className = "message-meta";
-  meta.textContent = role === "assistant" ? "NetAssist" : "Tú";
+  meta.textContent = role === "assistant" ? "Nexo" : "Tú";
   article.append(bubble, meta);
   messagesElement.appendChild(article);
   messagesElement.scrollTop = messagesElement.scrollHeight;
@@ -350,7 +350,7 @@ document.getElementById("new-chat-button").addEventListener("click", () => {
   messagesElement.replaceChildren();
   appendMessage(
     "assistant",
-    "¡Hola! Soy NetAssist. Cuéntame qué problema tienes y, si puedes, incluye el modelo del equipo Cisco, la versión de IOS y el error exacto."
+    "¡Hola! Soy Nexo, tu compañero de NetAssist. Cuéntame qué problema tienes y, si puedes, incluye el modelo del equipo Cisco, la versión de IOS y el error exacto."
   );
 });
 
