@@ -34,7 +34,7 @@ Este avance prepara la interacción. No equivale a un generador validado, un dia
 | 3. Generador VLAN | Implementada (pruebas locales, 09/11/2026); comprobación en simulador pendiente | Solicitud estructurada, validadores, comandos por equipo, verificaciones y persistencia mínima del caso | Faltan datos → se solicitan; VLAN/puertos inválidos → se rechazan; un caso de referencia se comprueba en simulador y puede reabrirse. |
 | 4. Diagnóstico con evidencia | Implementada (pruebas locales, 09/11/2026); comprobación con salidas reales de simulador pendiente | Analizador de salidas del escenario, pasos y resultados persistentes, fuentes | Cada observación referencia evidencia; no se repiten pasos completados y los resultados ambiguos piden aclaración. |
 | 5. Casos e informes | Implementada (pruebas locales, 09/11/2026); sin autenticación real | Lista de casos, estados, resumen exportable, acceso por usuario cuando corresponda | Se recuperan requisitos, propuestas, fuentes y evidencias; un usuario no accede a casos ajenos. |
-| 6. Demostración y evaluación | Por hacer | Escenarios reproducibles, fallos de proveedor, casos incompletos y métricas | Se presenta evidencia de funcionamiento, limitaciones y comparación contra el chat inicial. |
+| 6. Demostración y evaluación | Implementada (pruebas locales, 09/11/2026); sin proveedores reales ni simulador | Escenarios reproducibles, fallos de proveedor, casos incompletos y métricas | Se presenta evidencia de funcionamiento, limitaciones y comparación contra el chat inicial. |
 
 ## Diseño técnico previsto
 
@@ -157,3 +157,18 @@ Estado: **implementada y verificada con pruebas automatizadas y smoke de navegad
 Pruebas: 102 automatizadas satisfactorias (86 previas y 16 nuevas en `test_fase5.py`: acceso cruzado en todas las operaciones y rutas, clave inválida, casos sin propietario y adopción, archivado, filtros, contenido del informe, API, CORS y Streamlit). Se actualizó una prueba de Streamlit de fase 3 para usar la clave de sesión. Smoke en Chrome con API real y base temporal: caso generado, informe descargable, 404 con otra clave y sin clave, archivado desde la interfaz y reaparición con «Incluir archivados».
 
 Límites: la clave viaja en una cabecera sin cifrado propio (usar HTTPS al publicar) y quien la conoce accede a los casos; no hay registro, recuperación ni caducidad de claves, ni roles; una instancia local sin coordinación en red; el informe no se firma ni versiona; no se midió la vista móvil de los controles nuevos.
+
+## Resultado de la fase 6 — 9 de noviembre de 2026
+
+Estado: **implementada y verificada con un arnés reproducible**; no incluye mediciones con proveedores reales ni simulador. Detalle en `pruebas/verificacion_fase6.md`, resultados en `pruebas/resultado_fase6.md` / `.json` y `pruebas/resultado_fase6.txt`.
+
+| Entregable | Implementación y resultado |
+|---|---|
+| Escenarios reproducibles | `pruebas/evaluacion/escenarios.py`: 28 escenarios en seis áreas (configuración, topología, continuidad, proveedores, conocimiento, seguridad) sobre la API real con base temporal y dobles de Gemini, Groq e índice. Ejecutable por línea de comandos; genera informe y métricas. 28/28 superados. |
+| Fallos de proveedor | Primario caído, respuesta vacía, ambos caídos (se conserva la propuesta determinista y el caso), solo respaldo con captura (aviso de imagen no analizada), chat sin proveedores, índice caído (503) y búsqueda caída (propuesta sin fuentes). |
+| Casos incompletos | Modelo ausente, puerto/host ausentes, VLAN inválida, puerto repetido, salida cortada (requiere aclaración): se piden o rechazan sin llamar a la IA ni guardar el caso. |
+| Métricas | Escenarios superados por área, latencia local (mediana, p95, máxima), llamadas a proveedor evitadas, fuentes existentes en el corpus, resolución hallazgo → coherente. |
+| Comparación con el chat inicial | Tabla de capacidades en `verificacion_fase6.md`; no es una comparación de precisión de IA. |
+| Hallazgo corregido | Un objetivo fuera de alcance (p. ej. OSPF) se aceptaba sin aviso; `validar_tarea` ahora advierte (heurístico, no bloquea). |
+
+Pruebas: `test_fase6.py` ejecuta el arnés completo y comprueba la nueva advertencia (incluidos casos con negación). Límites: dobles en lugar de proveedores, latencia sin red, interfaz no automatizada en esta fase, analizador y generador aún sin contrastar con simulador, sin pruebas de carga.

@@ -12,6 +12,8 @@ _PUERTO = re.compile(r"^(fastethernet|fa|gigabitethernet|gig|gi)(\d{1,2})/(\d{1,
 _NOMBRE_VLAN = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
 _ALIAS = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,62}$")
 _HOST = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
+# Temas que el generador no cubre; el objetivo es texto libre y no debe aparentar que se atienden.
+_FUERA_DE_ALCANCE = re.compile(r"\b(ospf|eigrp|bgp|rip|vpn|ipsec|nat|acl|dhcp|stp|hsrp|etherchannel|trunk|inter-?vlan|router-on-a-stick)\b", re.IGNORECASE)
 
 
 def normalizar_puerto(texto: str) -> str | None:
@@ -31,6 +33,12 @@ def validar_tarea(tarea) -> tuple[list[str], list[str]]:
         errores.append("Alias del switch: empieza con letra y usa solo letras, números, guion o guion bajo.")
     if tarea.tipo == "configuracion" and tarea.equipo.modelo and "2960" not in tarea.equipo.modelo:
         advertencias.append("Las fichas disponibles cubren Catalyst 2960; verifica la sintaxis para este modelo.")
+
+    objetivo = tarea.objetivo or ""
+    fuera = sorted({m.group(1).upper() for m in _FUERA_DE_ALCANCE.finditer(objetivo)
+                    if not re.search(r"\b(sin|no)\b[^.;]{0,40}$", objetivo[:m.start()], re.IGNORECASE)})
+    if fuera:
+        advertencias.append("El objetivo menciona " + ", ".join(fuera) + ", fuera del alcance (VLAN y puertos de acceso en un switch); la propuesta no lo incluye.")
 
     nombres_por_vlan: dict[int, str] = {}
     puertos: dict[str, int] = {}

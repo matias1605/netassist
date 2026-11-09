@@ -1,0 +1,97 @@
+INFO:httpx:HTTP Request: POST http://testserver/chat "HTTP/1.1 200 OK"
+.INFO:httpx:HTTP Request: POST http://testserver/chat "HTTP/1.1 422 Unprocessable Entity"
+INFO:httpx:HTTP Request: POST http://testserver/chat "HTTP/1.1 422 Unprocessable Entity"
+INFO:httpx:HTTP Request: POST http://testserver/chat "HTTP/1.1 422 Unprocessable Entity"
+.INFO:httpx:HTTP Request: POST http://testserver/reindexar "HTTP/1.1 403 Forbidden"
+ERROR:backend.main:Falló la reindexación; se conserva el índice anterior. tipo=RuntimeError
+INFO:httpx:HTTP Request: POST http://testserver/reindexar "HTTP/1.1 503 Service Unavailable"
+INFO:httpx:HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+..WARNING:backend.llm:proveedor=gemini resultado=error tipo=RuntimeError latencia_ms=0
+INFO:backend.llm:proveedor=groq resultado=ok latencia_ms=0 contingencia=True
+.INFO:backend.llm:proveedor=gemini resultado=ok latencia_ms=0 contingencia=False
+.INFO:backend.llm:proveedor=gemini resultado=ok latencia_ms=0 contingencia=False
+WARNING:backend.llm:proveedor=gemini resultado=error tipo=RuntimeError latencia_ms=0
+INFO:backend.llm:proveedor=groq resultado=ok latencia_ms=0 contingencia=True
+WARNING:backend.llm:proveedor=gemini resultado=error tipo=RuntimeError latencia_ms=0
+WARNING:backend.llm:proveedor=groq resultado=error tipo=RuntimeError latencia_ms=0
+WARNING:backend.llm:proveedor=gemini resultado=error tipo=ValueError latencia_ms=0
+INFO:backend.llm:proveedor=groq resultado=ok latencia_ms=0 contingencia=True
+...INFO:backend.rag:Índice RAG actualizado: 1 archivo(s), 1 fragmento(s).
+.INFO:backend.rag:Índice RAG actualizado: 1 archivo(s), 1 fragmento(s).
+.INFO:backend.rag:Índice RAG actualizado: 1 archivo(s), 1 fragmento(s).
+INFO:backend.rag:Índice RAG actualizado: 1 archivo(s), 1 fragmento(s).
+.INFO:backend.rag:Índice RAG actualizado: 1 archivo(s), 1 fragmento(s).
+....INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/modelo:generateContent "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+..INFO:httpx:HTTP Request: POST http://testserver/laboratorio/preparar "HTTP/1.1 422 Unprocessable Entity"
+INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 422 Unprocessable Entity"
+.INFO:httpx:HTTP Request: GET http://testserver/laboratorio/ejemplo "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://testserver/laboratorio/preparar "HTTP/1.1 200 OK"
+.INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 200 OK"
+ERROR:backend.main:Falló la tarea de laboratorio. tipo=RuntimeError
+INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 503 Service Unavailable"
+INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 503 Service Unavailable"
+.INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 422 Unprocessable Entity"
+INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 422 Unprocessable Entity"
+........2026-11-09 12:39:55.256 WARNING streamlit.runtime.scriptrunner_utils.script_run_context: Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+.2026-11-09 12:39:58.196 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+......WARNING:asyncio:Executing <Task finished name='Task-195' coro=<AlmacenTests.test_guardar_reabrir_y_fuentes() done, defined at C:\Users\COMERCIAL\Desktop\Proyectos\inteligencia artificial\trabajo\netassist\pruebas\automatizadas\test_fase3.py:134> result=None created at C:\Users\COMERCIAL\Desktop\Proyectos\inteligencia artificial\trabajo\netassist\.runtime\python\cpython-3.11-windows-x86_64-none\Lib\asyncio\runners.py:100> took 0.109 seconds
+.....INFO:httpx:HTTP Request: GET http://testserver/casos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: GET http://testserver/casos/nope "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: POST http://testserver/casos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/comprobacion "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: POST http://testserver/casos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/comprobacion "HTTP/1.1 422 Unprocessable Entity"
+.INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos/94e60eb8ac25405fa150c8344dd12282 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://testserver/casos/94e60eb8ac25405fa150c8344dd12282/comprobacion "HTTP/1.1 200 OK"
+.INFO:httpx:HTTP Request: POST http://testserver/laboratorio/preparar "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 422 Unprocessable Entity"
+INFO:httpx:HTTP Request: GET http://testserver/casos "HTTP/1.1 200 OK"
+.....2026-11-09 12:40:02.334 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-11-09 12:40:04.550 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-11-09 12:40:05.518 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-11-09 12:40:05.556 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+.2026-11-09 12:40:05.957 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-11-09 12:40:07.121 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+.......................INFO:httpx:HTTP Request: POST http://testserver/casos/00000000000000000000000000000000/evidencias "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: GET http://testserver/casos/no-valido/diagnostico "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: POST http://testserver/casos/0804e7dde6fd4a68bb2b980714392f76/evidencias "HTTP/1.1 422 Unprocessable Entity"
+INFO:httpx:HTTP Request: POST http://testserver/casos/0804e7dde6fd4a68bb2b980714392f76/evidencias "HTTP/1.1 422 Unprocessable Entity"
+.INFO:httpx:HTTP Request: GET http://testserver/casos/7efbc74d358946d7a5c22d626ca138d3/diagnostico "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://testserver/casos/7efbc74d358946d7a5c22d626ca138d3/evidencias "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://testserver/casos/7efbc74d358946d7a5c22d626ca138d3/evidencias "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos/7efbc74d358946d7a5c22d626ca138d3/evidencias "HTTP/1.1 200 OK"
+.INFO:httpx:HTTP Request: GET http://testserver/casos/9650ff831b7f4e9fb1ab537caa0d2bef/diagnostico "HTTP/1.1 200 OK"
+...........2026-11-09 12:40:09.384 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-11-09 12:40:10.084 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+.......INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos "HTTP/1.1 422 Unprocessable Entity"
+.INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: OPTIONS http://testserver/casos "HTTP/1.1 200 OK"
+.INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://testserver/casos/b281885d2e0d4152b8dec4ce76c975eb/evidencias "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos?estado=comprobado "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos/b281885d2e0d4152b8dec4ce76c975eb/informe "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://testserver/casos/b281885d2e0d4152b8dec4ce76c975eb/archivado "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos?archivados=true "HTTP/1.1 200 OK"
+.INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos/d805851abd6f40b8b929428163f43802 "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: GET http://testserver/casos/d805851abd6f40b8b929428163f43802/diagnostico "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: GET http://testserver/casos/d805851abd6f40b8b929428163f43802/evidencias "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: GET http://testserver/casos/d805851abd6f40b8b929428163f43802/informe "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: POST http://testserver/casos/d805851abd6f40b8b929428163f43802/evidencias "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: POST http://testserver/casos/d805851abd6f40b8b929428163f43802/comprobacion "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: POST http://testserver/casos/d805851abd6f40b8b929428163f43802/archivado "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: GET http://testserver/casos/d805851abd6f40b8b929428163f43802 "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: GET http://testserver/casos "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos/d805851abd6f40b8b929428163f43802 "HTTP/1.1 200 OK"
+......2026-11-09 12:40:12.845 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+........
+----------------------------------------------------------------------
+Ran 109 tests in 27.225s
+
+OK

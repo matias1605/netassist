@@ -1,0 +1,245 @@
+{
+  "metricas": {
+    "escenarios": 28,
+    "superados": 28,
+    "por_area": {
+      "Configuración": "7/7",
+      "Topología": "4/4",
+      "Continuidad": "5/5",
+      "Proveedores": "5/5",
+      "Conocimiento": "4/4",
+      "Seguridad": "3/3"
+    },
+    "latencia_ms": {
+      "mediana": 27.2,
+      "p95": 90.2,
+      "maxima": 271.0
+    }
+  },
+  "escenarios": [
+    {
+      "id": "CF1",
+      "area": "Configuración",
+      "nombre": "Datos completos: comandos y verificaciones deterministas",
+      "ok": true,
+      "detalle": "HTTP 200; 18 comandos; estado reglas_aprobadas",
+      "ms": 271.0
+    },
+    {
+      "id": "CF2",
+      "area": "Configuración",
+      "nombre": "Modelo ausente: se pide el dato y no se llama a la IA",
+      "ok": true,
+      "detalle": "HTTP 422; faltantes ['Modelo del switch']; llamadas IA 0",
+      "ms": 9.1
+    },
+    {
+      "id": "CF3",
+      "area": "Configuración",
+      "nombre": "VLAN inválida (4095) rechazada sin llamar a la IA ni guardar el caso",
+      "ok": true,
+      "detalle": "HTTP 422; sin caso guardado",
+      "ms": 12.6
+    },
+    {
+      "id": "CF4",
+      "area": "Configuración",
+      "nombre": "Puerto repetido en dos VLAN rechazado",
+      "ok": true,
+      "detalle": "HTTP 422",
+      "ms": 3.6
+    },
+    {
+      "id": "CF5",
+      "area": "Configuración",
+      "nombre": "Objetivo fuera del alcance (OSPF): advertencia explícita",
+      "ok": true,
+      "detalle": "HTTP 200; 3 advertencias",
+      "ms": 22.6
+    },
+    {
+      "id": "CF6",
+      "area": "Configuración",
+      "nombre": "Objetivo que excluye trunk/IP no genera falso aviso de alcance",
+      "ok": true,
+      "detalle": "2 advertencias, ninguna de alcance",
+      "ms": 22.5
+    },
+    {
+      "id": "CF7",
+      "area": "Configuración",
+      "nombre": "Modelo distinto de 2960: advertencia, no bloqueo",
+      "ok": true,
+      "detalle": "HTTP 200",
+      "ms": 23.4
+    },
+    {
+      "id": "TP1",
+      "area": "Topología",
+      "nombre": "Dos PC y un switch: nodos, enlaces y Mermaid",
+      "ok": true,
+      "detalle": "3 nodos, 2 enlaces",
+      "ms": 23.4
+    },
+    {
+      "id": "TP2",
+      "area": "Topología",
+      "nombre": "Datos incompletos (puerto y host ausentes): se piden juntos",
+      "ok": true,
+      "detalle": "HTTP 422; faltantes ['Fila 1: Puerto de acceso', 'Fila 2: Equipo conectado']",
+      "ms": 6.7
+    },
+    {
+      "id": "TP3",
+      "area": "Topología",
+      "nombre": "Sin IP declarada: no se inventa direccionamiento",
+      "ok": true,
+      "detalle": "supuesto declarado; ninguna dirección IPv4 en la salida",
+      "ms": 23.6
+    },
+    {
+      "id": "TP4",
+      "area": "Topología",
+      "nombre": "Enlace no declarado: solo aparecen los enlaces del formulario",
+      "ok": true,
+      "detalle": "2 enlaces declarados",
+      "ms": 24.9
+    },
+    {
+      "id": "CT1",
+      "area": "Continuidad",
+      "nombre": "Reabrir el caso conserva datos y propuesta",
+      "ok": true,
+      "detalle": "estado propuesta",
+      "ms": 46.7
+    },
+    {
+      "id": "CT2",
+      "area": "Continuidad",
+      "nombre": "Misma salida pegada dos veces: no se duplica ni repite el paso",
+      "ok": true,
+      "detalle": "1 evidencia; omitidos 1",
+      "ms": 67.2
+    },
+    {
+      "id": "CT3",
+      "area": "Continuidad",
+      "nombre": "Hallazgo → corrección → resolución confirmada con historial",
+      "ok": true,
+      "detalle": "con_hallazgos → coherente; 4 evidencias en historial",
+      "ms": 90.2
+    },
+    {
+      "id": "CT4",
+      "area": "Continuidad",
+      "nombre": "Salida cortada: ambigua, pide aclaración y no afirma error",
+      "ok": true,
+      "detalle": "estado requiere_aclaracion",
+      "ms": 59.1
+    },
+    {
+      "id": "CT5",
+      "area": "Continuidad",
+      "nombre": "Informe exportable con comandos, fuentes y evidencias",
+      "ok": true,
+      "detalle": "4405 caracteres",
+      "ms": 55.7
+    },
+    {
+      "id": "PV1",
+      "area": "Proveedores",
+      "nombre": "Primario caído: responde el respaldo",
+      "ok": true,
+      "detalle": "llamadas {'gemini': 1, 'groq': 1}",
+      "ms": 31.6
+    },
+    {
+      "id": "PV2",
+      "area": "Proveedores",
+      "nombre": "Primario devuelve respuesta vacía: responde el respaldo",
+      "ok": true,
+      "detalle": "llamadas {'gemini': 1, 'groq': 1}",
+      "ms": 29.5
+    },
+    {
+      "id": "PV3",
+      "area": "Proveedores",
+      "nombre": "Ambos caídos: se conserva la propuesta determinista y el caso",
+      "ok": true,
+      "detalle": "estado propuesta_sin_explicacion; caso guardado True",
+      "ms": 29.9
+    },
+    {
+      "id": "PV4",
+      "area": "Proveedores",
+      "nombre": "Solo el respaldo y captura: aviso de que no se analizó la imagen",
+      "ok": true,
+      "detalle": "llamadas {'gemini': 1, 'groq': 1}",
+      "ms": 151.0
+    },
+    {
+      "id": "PV5",
+      "area": "Proveedores",
+      "nombre": "Chat con ambos proveedores caídos: aviso fijo",
+      "ok": true,
+      "detalle": "mensaje de contingencia",
+      "ms": 4.2
+    },
+    {
+      "id": "CN1",
+      "area": "Conocimiento",
+      "nombre": "Fuente válida: las fuentes citadas existen en el corpus",
+      "ok": true,
+      "detalle": "fuentes ['cisco_ios_basico.txt']",
+      "ms": 77.0
+    },
+    {
+      "id": "CN2",
+      "area": "Conocimiento",
+      "nombre": "Búsqueda del índice falla: la propuesta sigue, sin fuentes",
+      "ok": true,
+      "detalle": "HTTP 200",
+      "ms": 29.9
+    },
+    {
+      "id": "CN3",
+      "area": "Conocimiento",
+      "nombre": "Índice no disponible: 503 y no se llama a la IA",
+      "ok": true,
+      "detalle": "HTTP 503",
+      "ms": 3.8
+    },
+    {
+      "id": "CN4",
+      "area": "Conocimiento",
+      "nombre": "Diagnóstico disponible aunque el índice falle",
+      "ok": true,
+      "detalle": "HTTP 200",
+      "ms": 32.2
+    },
+    {
+      "id": "SG1",
+      "area": "Seguridad",
+      "nombre": "Datos sensibles en el chat: bloqueo antes del proveedor",
+      "ok": true,
+      "detalle": "llamadas IA 0",
+      "ms": 3.8
+    },
+    {
+      "id": "SG2",
+      "area": "Seguridad",
+      "nombre": "Datos sensibles en el formulario: no se guarda ni se envía",
+      "ok": true,
+      "detalle": "HTTP 422",
+      "ms": 9.5
+    },
+    {
+      "id": "SG3",
+      "area": "Seguridad",
+      "nombre": "Otro usuario no accede al caso (404) ni lo ve listado",
+      "ok": true,
+      "detalle": "códigos [404, 404, 404]",
+      "ms": 42.0
+    }
+  ]
+}
