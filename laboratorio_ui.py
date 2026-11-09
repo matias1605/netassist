@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from backend.casos import validar_usuario
 from backend.generador import formatear_propuesta
 from backend.informes import ESTADOS, generar_informe, nombre_archivo
+from estilos_streamlit import ENCABEZADO_LAB, card_head, form_sec
 from backend.laboratorio import TareaLaboratorio, ejemplo_laboratorio, preparar_tarea, generar_tarea
 
 logger = logging.getLogger(__name__)
@@ -95,10 +96,13 @@ def mostrar_laboratorio(cadena, mostrar_respuesta, rag=None, almacen=None):
         _cargar_ejemplo()
     if "lab_usuario" not in st.session_state:
         st.session_state.lab_usuario = secrets.token_urlsafe(24)
-    st.subheader("Espacio de laboratorio")
-    st.caption("VLAN y puertos de acceso · Solo datos ficticios · Un switch, sin IP, trunk ni enrutamiento entre VLAN")
-    st.text_input("Clave personal de casos", key="lab_usuario", max_chars=64,
-                  help="Separa tus casos de los de otras personas. No es una contraseña de cuenta: guárdala para reabrir tus casos en otra sesión.")
+    st.html(ENCABEZADO_LAB)
+    with st.expander("Probar con un ejemplo"):
+        st.caption("Se rellenará «Prepara tu práctica» automáticamente.")
+        st.button("Cargar ejemplo de laboratorio", on_click=_cargar_ejemplo)
+    with st.expander("Mi clave de casos"):
+        st.text_input("Clave personal de casos", key="lab_usuario", max_chars=64,
+                      help="Separa tus casos de los de otras personas. No es una contraseña de cuenta: guárdala para reabrir tus casos en otra sesión.")
     try:
         validar_usuario(st.session_state.lab_usuario)
     except ValueError as error:
@@ -108,11 +112,8 @@ def mostrar_laboratorio(cadena, mostrar_respuesta, rag=None, almacen=None):
         st.session_state.lab_usuario_activo = st.session_state.lab_usuario
         st.session_state.lab_caso_id = None
         _descartar()
-    datos_col, salida_col = st.columns([1.15, 1], gap="large")
-    with datos_col:
-        st.markdown("### 1. Datos de la práctica")
-        st.button("Cargar ejemplo de laboratorio", on_click=_cargar_ejemplo)
-        if almacen is not None:
+    if almacen is not None:
+        with st.expander("Mis prácticas guardadas"):
             estados = ["(todos)"] + list(ESTADOS)
             filtro = st.selectbox("Estado", estados, key="lab_filtro_estado", format_func=lambda e: e if e == "(todos)" else ESTADOS[e])
             st.checkbox("Incluir archivados", key="lab_ver_archivados")
@@ -125,19 +126,27 @@ def mostrar_laboratorio(cadena, mostrar_respuesta, rag=None, almacen=None):
                 st.caption("No hay casos con este filtro.")
             if st.session_state.get("lab_aviso"):
                 st.warning(st.session_state.lab_aviso)
-        st.selectbox("Tipo de tarea", ["configuracion", "topologia"], format_func=lambda x: "Generar configuración" if x == "configuracion" else "Generar topología", key="lab_tipo")
-        st.text_input("Nombre de la práctica", max_chars=120, key="lab_nombre")
-        st.text_input("Alias del switch", max_chars=64, key="lab_alias")
-        st.text_input("Modelo", max_chars=120, key="lab_modelo")
-        st.text_input("Versión de IOS", max_chars=80, key="lab_ios")
-        st.caption("Modelo e IOS son obligatorios para configuración. Si no los conoces, déjalos vacíos y revisa qué falta.")
+
+    # --- 01 · Prepara tu práctica ---------------------------------------------------------
+    with st.container(key="lab-form"):
+        st.html(card_head("01", "Prepara tu práctica", "Define el equipo y los grupos de puertos."))
+        st.text_input("Nombre de la práctica", max_chars=120, key="lab_nombre", placeholder="Separar Administración y Laboratorio")
+        st.html(form_sec("El equipo", "Cisco IOS"))
+        col_alias, col_modelo = st.columns(2)
+        col_alias.text_input("Alias del switch", max_chars=64, key="lab_alias", placeholder="Ej. SW1")
+        col_modelo.text_input("Modelo del switch", max_chars=120, key="lab_modelo", placeholder="Ej. Catalyst 2960")
+        st.html(form_sec("Grupos de puertos", "VLAN de acceso"))
         filas = st.data_editor(
             st.session_state.lab_filas, num_rows="dynamic", hide_index=True,
             column_config={"id": st.column_config.TextColumn("VLAN"), "nombre": st.column_config.TextColumn("Nombre"), "puerto": st.column_config.TextColumn("Puerto de acceso"), "host": st.column_config.TextColumn("Equipo conectado")},
             key=f"lab_editor_{st.session_state.lab_editor_version}", width="stretch",
         )
         st.caption("Añade o elimina filas en la tabla; entre 1 y 16 conexiones.")
-        st.text_area("Objetivo y requisitos", max_chars=1500, key="lab_objetivo")
+        with st.expander("Más detalles (tipo de tarea, versión de IOS y objetivo)"):
+            st.selectbox("Tipo de tarea", ["configuracion", "topologia"], format_func=lambda x: "Generar configuración" if x == "configuracion" else "Generar topología", key="lab_tipo")
+            st.text_input("Versión de IOS", max_chars=80, key="lab_ios")
+            st.caption("Modelo e IOS son obligatorios para configuración. Si no los conoces, déjalos vacíos y revisa qué falta.")
+            st.text_area("Objetivo y requisitos", max_chars=1500, key="lab_objetivo")
         datos = {"tipo": st.session_state.lab_tipo, "nombre": st.session_state.lab_nombre,
                  "equipo": {clave: st.session_state[f"lab_{clave}"] for clave in ("alias", "modelo", "ios")},
                  "vlans": [{k: str(v or "") for k, v in fila.items()} for fila in filas], "objetivo": st.session_state.lab_objetivo}
@@ -152,81 +161,89 @@ def mostrar_laboratorio(cadena, mostrar_respuesta, rag=None, almacen=None):
                 st.error("Revisa la longitud de los campos y registra entre 1 y 16 conexiones.")
             except ValueError as error:
                 st.error(str(error))
-    with salida_col:
-        st.markdown("### 2. Revisión")
-        revision = st.session_state.get("lab_revision")
-        if revision:
-            if revision["errores"]:
-                st.error("Corrige estos datos: " + " ".join(revision["errores"]))
-            if revision["faltantes"]:
-                st.warning("Completa estos datos: " + "; ".join(revision["faltantes"]))
-            elif not revision["errores"]:
-                st.info("Campos completos y reglas aprobadas. Revisa la solicitud antes de generar.")
-            for aviso in revision["advertencias"]:
-                st.caption("⚠ " + aviso)
-            etiquetas = {"reglas_aprobadas": "reglas aprobadas", "rechazada": "rechazada", "incompleta": "incompleta"}
-            st.caption(f"Validación por reglas: {etiquetas[revision['validacion_tecnica']]}. No equivale a una prueba en el simulador. Revisar no consulta a la IA.")
-            if revision["propuesta"]:
-                with st.expander("Propuesta determinista (sin IA)"):
-                    mostrar_respuesta(formatear_propuesta(revision["propuesta"]))
-            with st.expander("Datos y solicitud que se enviarán"):
-                st.code(revision["prompt"], language=None)
-            confirmado = st.checkbox("Revisé estos datos ficticios y quiero generar una propuesta.", key="lab_confirmado")
-            if st.button("Generar propuesta", disabled=not confirmado or bool(revision["faltantes"]) or bool(revision["errores"]), type="primary"):
-                st.session_state.lab_resultado = None
-                try:
-                    with st.spinner("Generando propuesta…"):
-                        st.session_state.lab_resultado = asyncio.run(generar_tarea(TareaLaboratorio(**revision["datos"]), confirmado, cadena, rag, almacen, st.session_state.get("lab_caso_id"), st.session_state.lab_usuario))
-                    if st.session_state.lab_resultado["caso_id"]:
-                        st.session_state.lab_caso_id = st.session_state.lab_resultado["caso_id"]
-                except ValueError as error:
-                    st.error(str(error))
-                except Exception as error:
-                    logger.error("Falló laboratorio Streamlit. tipo=%s", type(error).__name__)
-                    st.error("No se pudo generar la propuesta. Intenta nuevamente.")
-            st.button("Descartar revisión", on_click=_descartar)
-        else:
-            st.caption("Completa el formulario y pulsa Revisar datos. Este paso no consulta a la IA.")
-        st.markdown("### 3. Resultado")
-        resultado = st.session_state.get("lab_resultado")
-        if resultado:
-            if resultado["estado"] == "respuesta_generada":
-                st.warning("Propuesta con explicación de IA · Validada por reglas, pendiente de comprobar en laboratorio")
-            elif resultado["estado"] == "reabierto":
-                comprobacion = resultado["comprobacion_laboratorio"]
-                st.warning("Caso reabierto · " + ("Comprobación en laboratorio: " + comprobacion if comprobacion != "no_realizada" else "pendiente de comprobar en laboratorio"))
+
+    # --- 02 · Tu práctica: revisión, resultado y comprobaciones -----------------------------
+    with st.container(key="lab-practica"):
+        st.html(card_head("02", "Tu práctica", "Revisa los datos, genera la propuesta y comprueba con tu simulador."))
+        tab_revision, tab_config, tab_comprob = st.tabs(["Revisión", "Configuración", "Comprobaciones"])
+        with tab_revision:
+            revision = st.session_state.get("lab_revision")
+            if revision:
+                if revision["errores"]:
+                    st.error("Corrige estos datos: " + " ".join(revision["errores"]))
+                if revision["faltantes"]:
+                    st.warning("Completa estos datos: " + "; ".join(revision["faltantes"]))
+                elif not revision["errores"]:
+                    st.info("Campos completos y reglas aprobadas. Revisa la solicitud antes de generar.")
+                for aviso in revision["advertencias"]:
+                    st.caption("⚠ " + aviso)
+                etiquetas = {"reglas_aprobadas": "reglas aprobadas", "rechazada": "rechazada", "incompleta": "incompleta"}
+                st.caption(f"Validación por reglas: {etiquetas[revision['validacion_tecnica']]}. No equivale a una prueba en el simulador. Revisar no consulta a la IA.")
+                if revision["propuesta"]:
+                    with st.expander("Propuesta determinista (sin IA)"):
+                        mostrar_respuesta(formatear_propuesta(revision["propuesta"]))
+                with st.expander("Datos y solicitud que se enviarán"):
+                    st.code(revision["prompt"], language=None)
+                confirmado = st.checkbox("Revisé estos datos ficticios y quiero generar una propuesta.", key="lab_confirmado")
+                if st.button("Generar propuesta", disabled=not confirmado or bool(revision["faltantes"]) or bool(revision["errores"]), type="primary"):
+                    st.session_state.lab_resultado = None
+                    try:
+                        with st.spinner("Generando propuesta…"):
+                            st.session_state.lab_resultado = asyncio.run(generar_tarea(TareaLaboratorio(**revision["datos"]), confirmado, cadena, rag, almacen, st.session_state.get("lab_caso_id"), st.session_state.lab_usuario))
+                        if st.session_state.lab_resultado["caso_id"]:
+                            st.session_state.lab_caso_id = st.session_state.lab_resultado["caso_id"]
+                    except ValueError as error:
+                        st.error(str(error))
+                    except Exception as error:
+                        logger.error("Falló laboratorio Streamlit. tipo=%s", type(error).__name__)
+                        st.error("No se pudo generar la propuesta. Intenta nuevamente.")
+                if st.session_state.get("lab_resultado"):
+                    st.success("Propuesta lista: mírala en la pestaña «Configuración».")
+                st.button("Descartar revisión", on_click=_descartar)
             else:
-                st.warning("Propuesta sin explicación de IA · Revisa el aviso")
-            if resultado.get("caso_id"):
-                st.caption(f"Caso guardado: {resultado['caso_id'][:8]}")
-            mostrar_respuesta(resultado["texto"])
-        else:
-            st.caption("Sin propuesta para estos datos.")
-        st.caption("Comprobación en laboratorio: no realizada. Generar una respuesta no ejecuta comandos ni certifica conectividad.")
-        caso_abierto = st.session_state.get("lab_caso_id")
-        if almacen is not None and caso_abierto:
-            try:
-                caso_actual = almacen.obtener_caso(caso_abierto, st.session_state.lab_usuario)
-                informe = generar_informe(caso_actual, almacen.obtener_diagnostico(caso_abierto, usuario=st.session_state.lab_usuario),
-                                          almacen.listar_evidencias(caso_abierto, st.session_state.lab_usuario))
-                st.download_button("Descargar informe (.md)", informe, file_name=nombre_archivo(caso_actual), mime="text/markdown")
-                st.button("Restaurar caso" if caso_actual["archivado"] else "Archivar caso", on_click=_archivar, args=(almacen, caso_abierto, not caso_actual["archivado"]))
-            except LookupError:
-                st.session_state.lab_caso_id = None
-        st.markdown("### 4. Diagnóstico con evidencia")
-        if almacen is None or not caso_abierto:
-            st.caption("Genera o reabre un caso para diagnosticarlo con las salidas de tu simulador.")
-        else:
-            st.caption("Ejecuta los comandos en tu simulador y pega las salidas (show vlan brief, show interfaces <puerto> switchport). Se comparan con los datos declarados; no se consulta ningún dispositivo.")
-            st.text_area("Salidas de verificación", max_chars=8000, height=180, key="lab_evidencia")
-            st.button("Analizar salidas", on_click=_analizar_evidencia, args=(almacen,))
-            if st.session_state.get("lab_diag_aviso"):
-                st.error(st.session_state.lab_diag_aviso)
-            for motivo in st.session_state.get("lab_diag_omitidos", []):
-                st.warning("No se registró: " + motivo)
-            try:
-                diagnostico = almacen.obtener_diagnostico(caso_abierto, usuario=st.session_state.lab_usuario)
-            except LookupError:
-                diagnostico = None
-            if diagnostico and diagnostico["estado"] != "sin_evidencia":
-                mostrar_respuesta(diagnostico["texto"])
+                st.caption("Completa el formulario y pulsa Revisar datos. Este paso no consulta a la IA.")
+        with tab_config:
+            resultado = st.session_state.get("lab_resultado")
+            if resultado:
+                if resultado["estado"] == "respuesta_generada":
+                    st.warning("Propuesta con explicación de IA · Validada por reglas, pendiente de comprobar en laboratorio")
+                elif resultado["estado"] == "reabierto":
+                    comprobacion = resultado["comprobacion_laboratorio"]
+                    st.warning("Caso reabierto · " + ("Comprobación en laboratorio: " + comprobacion if comprobacion != "no_realizada" else "pendiente de comprobar en laboratorio"))
+                else:
+                    st.warning("Propuesta sin explicación de IA · Revisa el aviso")
+                if resultado.get("caso_id"):
+                    st.caption(f"Caso guardado: {resultado['caso_id'][:8]}")
+                mostrar_respuesta(resultado["texto"])
+            else:
+                st.caption("Sin propuesta para estos datos.")
+            st.caption("Comprobación en laboratorio: no realizada. Generar una respuesta no ejecuta comandos ni certifica conectividad.")
+            caso_abierto = st.session_state.get("lab_caso_id")
+            if almacen is not None and caso_abierto:
+                try:
+                    caso_actual = almacen.obtener_caso(caso_abierto, st.session_state.lab_usuario)
+                    informe = generar_informe(caso_actual, almacen.obtener_diagnostico(caso_abierto, usuario=st.session_state.lab_usuario),
+                                              almacen.listar_evidencias(caso_abierto, st.session_state.lab_usuario))
+                    st.download_button("Descargar informe (.md)", informe, file_name=nombre_archivo(caso_actual), mime="text/markdown")
+                    st.button("Restaurar caso" if caso_actual["archivado"] else "Archivar caso", on_click=_archivar, args=(almacen, caso_abierto, not caso_actual["archivado"]))
+                except LookupError:
+                    st.session_state.lab_caso_id = None
+        with tab_comprob:
+            st.markdown("#### Diagnóstico con evidencia")
+            caso_abierto = st.session_state.get("lab_caso_id")
+            if almacen is None or not caso_abierto:
+                st.caption("Genera o reabre un caso para diagnosticarlo con las salidas de tu simulador.")
+            else:
+                st.caption("Ejecuta los comandos en tu simulador y pega las salidas (show vlan brief, show interfaces <puerto> switchport). Se comparan con los datos declarados; no se consulta ningún dispositivo.")
+                st.text_area("Salidas de verificación", max_chars=8000, height=180, key="lab_evidencia")
+                st.button("Analizar salidas", on_click=_analizar_evidencia, args=(almacen,))
+                if st.session_state.get("lab_diag_aviso"):
+                    st.error(st.session_state.lab_diag_aviso)
+                for motivo in st.session_state.get("lab_diag_omitidos", []):
+                    st.warning("No se registró: " + motivo)
+                try:
+                    diagnostico = almacen.obtener_diagnostico(caso_abierto, usuario=st.session_state.lab_usuario)
+                except LookupError:
+                    diagnostico = None
+                if diagnostico and diagnostico["estado"] != "sin_evidencia":
+                    mostrar_respuesta(diagnostico["texto"])

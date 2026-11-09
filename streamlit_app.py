@@ -37,13 +37,14 @@ from laboratorio_ui import mostrar_laboratorio
 from backend.config import SUPPORT_CONTACT  # noqa: E402
 from backend.rag import RagService  # noqa: E402
 from backend.seguridad import MENSAJE_DATOS_SENSIBLES, validar_imagen  # noqa: E402
+from estilos_streamlit import NEXO_URI, cabecera_chat, estilos  # noqa: E402
 
 BIENVENIDA = (
     "¡Hola! Soy NetAssist. Cuéntame qué problema tienes y, si puedes, incluye el modelo "
     "del equipo Cisco, la versión de IOS y el error exacto."
 )
 TIPOS_IMAGEN = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}
-AVATAR_BOT = "🛠️"
+AVATAR_BOT = NEXO_URI
 AVATAR_USUARIO = "🧑‍💻"
 AVATARES = {"assistant": AVATAR_BOT, "user": AVATAR_USUARIO}
 PATRON_MERMAID = re.compile(r"```mermaid\s*\n(.*?)```", re.DOTALL)
@@ -139,68 +140,8 @@ if "mensajes" not in st.session_state:
 if "chat_abierto" not in st.session_state:
     st.session_state.chat_abierto = False
 
-# --- Estilos de la burbuja ---------------------------------------------------------------
-# Los contenedores con key reciben la clase .st-key-<key>; con ella se fijan abajo a la derecha.
-st.html(
-    """
-    <style>
-      [data-testid="stSidebarCollapsedControl"], [data-testid="stSidebar"] { display: none; }
-      .st-key-boton-burbuja {
-        position: fixed; right: 24px; bottom: 24px; z-index: 1001; width: auto !important;
-      }
-      .st-key-boton-burbuja button {
-        width: 64px; height: 64px; border-radius: 50%; border: none;
-        background: #1F4E79; color: #fff; font-size: 28px;
-        box-shadow: 0 6px 18px rgba(0, 0, 0, .28);
-      }
-      .st-key-boton-burbuja button:hover { background: #163A5C; color: #fff; }
-      .st-key-boton-burbuja button:focus:not(:active) { color: #fff; border: none; }
-      .st-key-ventana-chat {
-        position: fixed; right: 24px; bottom: 100px; z-index: 1000;
-        width: min(420px, calc(100vw - 32px)) !important;
-        max-height: calc(100vh - 124px); overflow-y: auto;
-        background: #fff; border-radius: 18px; padding: 0; gap: 0;
-        box-shadow: 0 14px 40px rgba(16, 42, 67, .28);
-        border: 1px solid #e3e8ef;
-      }
-      .st-key-cabecera-chat {
-        background: linear-gradient(135deg, #1F4E79, #2E6DA4);
-        padding: 14px 16px; border-radius: 18px 18px 0 0;
-      }
-      .st-key-cabecera-chat p { color: #fff; margin: 0; line-height: 1.3; }
-      .st-key-cabecera-chat small, .st-key-cabecera-chat em { color: #d6e4f2; font-style: normal; }
-      .st-key-cabecera-chat button {
-        background: rgba(255, 255, 255, .12); color: #fff;
-        border: 1px solid rgba(255, 255, 255, .55); border-radius: 999px;
-        padding: 2px 12px; min-height: 0; font-size: 13px;
-      }
-      .st-key-cabecera-chat button:hover { background: rgba(255, 255, 255, .25); color: #fff; border-color: #fff; }
-      .st-key-cuerpo-chat { background: #f5f7fa; padding: 12px 12px 4px; }
-      .st-key-cuerpo-chat [data-testid="stChatMessage"] {
-        padding: 10px 12px; margin-bottom: 4px; border-radius: 14px;
-        background: #fff; border: 1px solid #e3e8ef; gap: 8px;
-      }
-      .st-key-cuerpo-chat [data-testid="stChatMessage"]:has(.msg-usuario) {
-        flex-direction: row-reverse; background: #e3eefa; border-color: #c9dcf0; margin-left: 28px;
-      }
-      .st-key-cuerpo-chat [data-testid="stChatMessage"]:not(:has(.msg-usuario)) { margin-right: 12px; }
-      .st-key-cuerpo-chat .stElementContainer:has(.msg-usuario) { display: none; }
-      .st-key-cuerpo-chat [data-testid="stChatMessageContent"] { min-width: 0; }
-      .st-key-cuerpo-chat [data-testid="stChatMessageContent"] p { font-size: 14.5px; line-height: 1.5; }
-      .st-key-cuerpo-chat [data-testid="stImage"], .st-key-cuerpo-chat [data-testid="stImageContainer"] {
-        margin-left: auto; margin-right: auto;
-      }
-      .st-key-cuerpo-chat img { border-radius: 10px; }
-      .st-key-cuerpo-chat iframe { display: block; margin: 0 auto; }
-      .st-key-pie-chat { padding: 10px 12px 12px; border-top: 1px solid #e3e8ef; background: #fff; }
-      .st-key-pie-chat [data-testid="stChatInput"] > div { border-radius: 14px; }
-      @media (max-width: 640px) {
-        .st-key-ventana-chat { right: 16px; bottom: 96px; }
-        .st-key-boton-burbuja { right: 16px; bottom: 16px; }
-      }
-    </style>
-    """
-)
+# --- Estilos: mismo diseño que la web (ver estilos_streamlit.py) -------------------------
+st.html(estilos())
 
 try:
     cadena, resumen, rag = cargar_asistente()
@@ -213,7 +154,7 @@ st.title("Laboratorio de Redes y Conectividad I")
 st.caption("Portal de prácticas con equipos Cisco IOS · USMP · Equipo 04")
 st.markdown(
     "Aquí encontrarás las prácticas del laboratorio. Si algo no funciona durante una práctica, "
-    "pulsa la burbuja **💬** de abajo a la derecha y pregúntale a **NetAssist**, el asistente "
+    "pulsa la mascota **Nexo** de abajo a la derecha y pregúntale a **NetAssist**, el asistente "
     "de soporte del laboratorio."
 )
 
@@ -241,9 +182,9 @@ st.markdown(
 st.caption(f"Base de conocimiento de NetAssist: {resumen['fragmentos']} fichas de Cisco IOS en ChromaDB.")
 
 # --- Botón flotante ----------------------------------------------------------------------
-with st.container(key="boton-burbuja"):
+with st.container(key="boton-burbuja-abierta" if st.session_state.chat_abierto else "boton-burbuja-cerrada"):
     st.button(
-        "✕" if st.session_state.chat_abierto else "💬",
+        "✕" if st.session_state.chat_abierto else "Abrir",
         on_click=alternar_chat,
         help="Cerrar NetAssist" if st.session_state.chat_abierto else "Abrir NetAssist",
     )
@@ -257,7 +198,7 @@ if st.session_state.chat_abierto:
             vertical_alignment="center",
             horizontal_alignment="distribute",
         ):
-            st.markdown("**🛠️ NetAssist**  \n<small>Soporte de redes Cisco IOS</small>", unsafe_allow_html=True)
+            st.html(cabecera_chat())
             st.button("Nuevo chat", on_click=nueva_conversacion, help="Borra la conversación")
 
         conversacion = st.container(height=420, border=False, key="cuerpo-chat")
