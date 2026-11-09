@@ -145,18 +145,15 @@ for (const ejemplo of LAB_EJEMPLOS) {
 }
 
 document.getElementById("lab-add").addEventListener("click", () => { if (!labBusy) { labAddPort(); labSetBusy(false); } });
-document.getElementById("lab-save").addEventListener("click", () => {
-  labStatus.textContent = labSave() ? "Datos guardados." : "No se pudieron guardar en este navegador.";
-});
 labForm.addEventListener("input", () => { labStatus.textContent = ""; });
 
-// ----- Enviar a la IA: reglas primero (sin IA) y, si pasan, se lo pide a Nexo en el chat -----
+// ----- Guardar y hablar con Nexo: reglas primero (sin IA); si pasan, se guarda la práctica y Nexo saluda -----
 labForm.addEventListener("submit", async event => {
   event.preventDefault();
   if (labBusy) return;
   labSetBusy(true);
   labStatus.textContent = "";
-  let mensaje = "";
+  let nombre = "";
   try {
     const revision = await labRequest("preparar", labRead());
     const problemas = [];
@@ -164,10 +161,16 @@ labForm.addEventListener("submit", async event => {
     if (revision.faltantes.length) problemas.push(`Completa estos datos: ${revision.faltantes.join("; ")}.`);
     if (problemas.length) { labStatus.textContent = problemas.join(" "); return; }
     labSave();
-    mensaje = `Genera la configuración Cisco IOS de mi práctica «${labRead().nombre}»: comandos, verificaciones y una advertencia breve.`;
+    const data = await labRequest("practica", { tarea: labRead(), caso_id: labCaseId });
+    labCaseId = data.caso_id;
+    labMarkArchived(false);
+    labResetDiagnosis(labCaseId);
+    await labLoadCases();
+    nombre = labRead().nombre;
+    labStatus.textContent = "Práctica guardada. Nexo ya tiene tus datos.";
   } catch (error) { labStatus.textContent = error.message; }
   finally { labSetBusy(false); }
-  if (mensaje && typeof window.enviarANexo === "function") window.enviarANexo(mensaje);
+  if (nombre && typeof window.nexoSaludo === "function") window.nexoSaludo(nombre);
 });
 
 // El panel de resultados comparte el comportamiento de copiado del chat.
@@ -196,7 +199,7 @@ async function labLoadCases() {
     if (labFilter.value) consulta.set("estado", labFilter.value);
     if (labArchived.checked) consulta.set("archivados", "true");
     const casos = await labRequestRoot(`casos${consulta.size ? `?${consulta}` : ""}`);
-    const selected = labCases.value;
+    const selected = labCaseId || labCases.value; // la práctica en curso aparece seleccionada
     labCases.replaceChildren(...casos.map(caso => new Option(`${caso.nombre || "Sin nombre"} · ${LAB_ESTADOS[caso.estado] || caso.estado}${caso.archivado ? " · archivado" : ""} · ${caso.actualizado.slice(0, 16).replace("T", " ")}`, caso.id)));
     if (selected && casos.some(caso => caso.id === selected)) labCases.value = selected;
     const filtrando = !!labFilter.value || labArchived.checked;
@@ -328,6 +331,7 @@ labUserInput.addEventListener("change", () => {
 });
 
 // ----- Puente con el chat de Nexo -----
+window.labNombre = () => labRead().nombre || "mi práctica";
 // Datos del formulario que acompañan a cada consulta del chat (solo si hay algo escrito).
 window.labContexto = () => {
   const datos = labRead();

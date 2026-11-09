@@ -192,12 +192,82 @@ function appendMessage(role, content, persist = true, imagenUrl = null) {
   }
 }
 
-// Abre el chat y le envía a Nexo una petición (la usa el botón «Enviar a la inteligencia artificial»).
-window.enviarANexo = (texto) => {
-  if (sendButton.disabled) return;
+// ----- Sugerencias de Nexo: bloques concretos al empezar y un siguiente paso tras cada respuesta -----
+const NEXO_TEMAS = {
+  configurar: { etiqueta: "Generar la configuración", pregunta: "¿Te genero la configuración?", prompt: (n) => `Genera la configuración Cisco IOS de mi práctica «${n}».` },
+  explicar: { etiqueta: "Explicar cada comando", pregunta: "¿Quieres que te explique qué hace cada comando?", prompt: () => "Explícame qué hace cada comando de la configuración de mi práctica." },
+  verificar: { etiqueta: "Comandos para comprobarlo", pregunta: "¿Quieres que te dé comandos para que lo compruebes?", prompt: () => "Dame los comandos para comprobar mi práctica en el simulador y qué debería ver en cada uno." },
+  topologia: { etiqueta: "Dibujar la topología", pregunta: "¿Te dibujo la topología?", prompt: () => "Genera la topología de mi práctica." },
+  errores: { etiqueta: "Errores comunes", pregunta: "¿Repasamos los errores más comunes?", prompt: () => "¿Qué errores comunes debo evitar en esta práctica y cómo los reviso?" },
+};
+const NEXO_SIGUIENTE = {
+  configurar: ["verificar", "explicar", "topologia", "errores"],
+  verificar: ["explicar", "errores", "topologia", "configurar"],
+  explicar: ["verificar", "topologia", "errores", "configurar"],
+  topologia: ["configurar", "verificar", "explicar", "errores"],
+  errores: ["verificar", "configurar", "explicar", "topologia"],
+};
+let temasUsados = new Set();
+
+function temaDe(texto) {
+  if (/topolog/i.test(texto)) return "topologia";
+  if (/comprob|verific|\bshow\b/i.test(texto)) return "verificar";
+  if (/expl[ií]ca|qu[eé] hace/i.test(texto)) return "explicar";
+  if (/error|falla|no funciona/i.test(texto)) return "errores";
+  if (/configur|comando|vlan/i.test(texto)) return "configurar";
+  return null;
+}
+
+function quitarSugerencias() {
+  for (const bloque of messagesElement.querySelectorAll(".sugerencias")) bloque.remove();
+}
+
+function mostrarSugerencias(temas, intro = "") {
+  quitarSugerencias();
+  const ultimo = messagesElement.lastElementChild;
+  if (!temas.length || !ultimo || !ultimo.classList.contains("message-assistant")) return;
+  const bloque = document.createElement("div");
+  bloque.className = "sugerencias";
+  if (intro) {
+    const texto = document.createElement("p");
+    texto.textContent = intro;
+    bloque.appendChild(texto);
+  }
+  const lista = document.createElement("div");
+  lista.className = "sugerencias-lista";
+  for (const tema of temas) {
+    const boton = document.createElement("button");
+    boton.type = "button";
+    boton.className = "sugerencia";
+    boton.textContent = NEXO_TEMAS[tema].etiqueta;
+    boton.addEventListener("click", () => enviarMensaje(NEXO_TEMAS[tema].prompt(window.labNombre ? window.labNombre() : "mi práctica"), null, tema));
+    lista.appendChild(boton);
+  }
+  bloque.appendChild(lista);
+  ultimo.appendChild(bloque);
+  messagesElement.scrollTop = messagesElement.scrollHeight;
+}
+
+// Tras una respuesta sobre la práctica, Nexo propone el siguiente paso que aún no se ha visto.
+function sugerirSiguiente(tema) {
+  if (!tema || typeof window.labContexto !== "function" || !window.labContexto()) return;
+  temasUsados.add(tema);
+  const pendientes = NEXO_SIGUIENTE[tema].filter((t) => !temasUsados.has(t)).slice(0, 3);
+  if (!pendientes.length) return;
+  const intro = pendientes.length > 1 ? `${NEXO_TEMAS[pendientes[0]].pregunta} También puedo ayudarte con esto:` : NEXO_TEMAS[pendientes[0]].pregunta;
+  mostrarSugerencias(pendientes, intro);
+}
+
+// Abre el chat y Nexo saluda: ya tiene los datos guardados de la práctica y propone por dónde seguir.
+window.nexoSaludo = (nombre) => {
   document.getElementById("nexo-launcher").click();
-  inputElement.value = texto;
-  chatForm.requestSubmit();
+  temasUsados = new Set();
+  appendMessage(
+    "assistant",
+    `¡Hola! Ya tengo los datos de tu práctica «${nombre}» (equipo, VLAN y puertos). ¿Qué dudas tienes? Te sugiero empezar por alguno de estos bloques:`,
+    false
+  );
+  mostrarSugerencias(["configurar", "explicar", "topologia", "errores"]);
 };
 
 // Añade al último mensaje (solo en lo que se envía, no en el historial visible) los datos del formulario de la práctica.
@@ -226,39 +296,6 @@ async function fetchContact() {
     }
   } catch (error) {
     console.error("No se pudo consultar el contacto configurado:", error);
-  }
-}
-
-async function loadQuickActions() {
-  const list = document.getElementById("quick-actions-list");
-  const note = document.getElementById("quick-actions-note");
-  try {
-    const response = await fetch(`${API_BASE}/acciones`);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const actions = await response.json();
-    if (!Array.isArray(actions) || !actions.length) throw new Error("Sin acciones disponibles");
-    for (const action of actions) {
-      if (typeof action.titulo !== "string" || typeof action.prompt !== "string") continue;
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "quick-action-button";
-      button.textContent = action.titulo;
-      button.title = action.descripcion || action.titulo;
-      button.addEventListener("click", () => {
-        if (sendButton.disabled) return;
-        if (inputElement.value.trim() || imagenAdjunta) {
-          note.textContent = "Envía o borra tu borrador y quita el adjunto antes de elegir otra acción.";
-          return;
-        }
-        inputElement.value = action.prompt;
-        note.textContent = "Datos ficticios cargados. Revisa o edita el borrador y pulsa Enviar. La propuesta requiere verificación en laboratorio.";
-        inputElement.focus();
-      });
-      list.appendChild(button);
-    }
-    note.textContent = "Carga un ejemplo editable. Los botones no envían consultas ni ejecutan comandos.";
-  } catch (error) {
-    note.textContent = "No se pudieron cargar las acciones. Puedes escribir tu consulta o volver a cargar la página.";
   }
 }
 
@@ -311,7 +348,7 @@ inputElement.addEventListener("paste", (event) => {
   adjuntarArchivo(item.getAsFile());
 });
 
-chatForm.addEventListener("submit", async (event) => {
+chatForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const texto = inputElement.value.trim();
   const imagen = imagenAdjunta;
@@ -321,14 +358,20 @@ chatForm.addEventListener("submit", async (event) => {
     appendMessage("assistant", "Revisa la captura, elimina datos reales y confirma la casilla antes de enviarla.", false);
     return;
   }
+  inputElement.value = "";
+  enviarMensaje(texto, imagen);
+});
 
+// Envía un mensaje al chat. Las sugerencias lo llaman sin imagen y sin tocar el borrador del campo de texto.
+async function enviarMensaje(texto, imagen = null, tema = null) {
+  if (sendButton.disabled) return;
+  quitarSugerencias();
   // El historial guarda solo texto; la nota deja constancia de que hubo una imagen en ese turno.
   const content = imagen
     ? `${texto || "Analiza la imagen adjunta."}\n\n[Imagen adjunta: ${imagen.nombre}]`
     : texto;
   appendMessage("user", content, true, imagen ? imagen.url : null);
-  quitarAdjunto();
-  inputElement.value = "";
+  if (imagen) quitarAdjunto();
   sendButton.disabled = true;
   typingIndicator.classList.remove("hidden");
   messagesElement.scrollTop = messagesElement.scrollHeight;
@@ -358,6 +401,8 @@ chatForm.addEventListener("submit", async (event) => {
     appendMessage("assistant", data.reply);
     // Si Nexo entregó comandos o un diagrama, lo deja también en el panel de la práctica.
     if (/```/.test(data.reply) && typeof window.labDesdeChat === "function") window.labDesdeChat(data.reply);
+    // Y le propone a la persona el siguiente paso (comprobar, explicar, topología…).
+    sugerirSiguiente(tema || temaDe(texto) || (/```mermaid/.test(data.reply) ? "topologia" : null));
   } catch (error) {
     console.error("Falló la solicitud de chat:", error);
     appendMessage(
@@ -369,10 +414,11 @@ chatForm.addEventListener("submit", async (event) => {
     sendButton.disabled = false;
     inputElement.focus();
   }
-});
+}
 
 document.getElementById("new-chat-button").addEventListener("click", () => {
   history = [];
+  temasUsados = new Set();
   saveHistory();
   quitarAdjunto();
   messagesElement.replaceChildren();
@@ -412,4 +458,3 @@ if (window.mermaid) {
 
 restoreHistory();
 fetchContact();
-loadQuickActions();

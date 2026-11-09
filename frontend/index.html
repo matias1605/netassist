@@ -133,8 +133,7 @@
                 <button id="lab-add" class="button button-quiet" type="button">+ Añadir grupo</button>
 
                 <div class="lab-buttons">
-                  <button class="button button-contact" type="submit">Enviar a la inteligencia artificial</button>
-                  <button id="lab-save" class="button button-quiet" type="button">Guardar datos</button>
+                  <button class="button button-contact" type="submit">Guardar y hablar con Nexo</button>
                 </div>
                 <p id="lab-status" role="status" class="lab-help"></p>
               </form>
@@ -175,9 +174,9 @@
           <div class="vista-inner vista-estrecha">
             <p class="eyebrow">Tu historial</p>
             <h1 id="lab-cases-title">Mis prácticas</h1>
-            <p class="lead">Cada propuesta generada se guarda para que puedas reabrirla, descargar su informe o archivarla.</p>
+            <p class="lead">Cada práctica que guardas se conserva para que puedas reabrirla, descargar su informe o archivarla.</p>
             <section class="lab-sheet lab-cases" aria-label="Prácticas guardadas">
-              <p id="lab-cases-empty" class="lab-help">Aún no hay prácticas. Al generar una propuesta se guarda para reabrirla.</p>
+              <p id="lab-cases-empty" class="lab-help">Aún no hay prácticas. Al guardar tu práctica en el laboratorio aparece aquí para reabrirla.</p>
               <div class="lab-buttons">
                 <label class="lab-case-select">Estado<select id="lab-filter"><option value="">Todos</option></select></label>
                 <label class="lab-confirm"><input id="lab-archived" type="checkbox"> Incluir archivadas</label>
@@ -212,12 +211,6 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>
         </button>
       </header>
-
-      <details class="quick-actions" aria-label="Acciones rápidas de IA" open>
-        <summary class="quick-actions-heading"><strong>Acciones rápidas</strong><span>Respuestas concisas y precisas</span></summary>
-        <div id="quick-actions-list" class="quick-actions-list"></div>
-        <p id="quick-actions-note" role="status">Cargando datos de prueba…</p>
-      </details>
 
       <div id="messages" class="messages" aria-live="polite" aria-label="Mensajes">
         <article class="message message-assistant">
@@ -277,8 +270,8 @@
     </div>
   </dialog>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js" defer></script>
-  <script src="app.js?v=13" defer></script>
-  <script src="laboratorio.js?v=6" defer></script>
+  <script src="app.js?v=14" defer></script>
+  <script src="laboratorio.js?v=7" defer></script>
   <script src="mascota.js?v=5" defer></script>
   <script src="vistas.js?v=3" defer></script>
 </body>

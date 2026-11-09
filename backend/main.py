@@ -16,7 +16,7 @@ from .config import CASOS_DB_PATH, FRONTEND_ORIGIN, SUPPORT_CONTACT
 from .acciones import obtener_acciones
 from .informes import generar_informe, nombre_archivo
 from .cadena import crear_cadena
-from .laboratorio import TareaLaboratorio, _fuentes, ejemplo_laboratorio, preparar_tarea, generar_tarea, guardar_sesion
+from .laboratorio import TareaLaboratorio, _fuentes, ejemplo_laboratorio, preparar_tarea, generar_tarea, guardar_practica, guardar_sesion
 from .llm import MENSAJE_FALLBACK
 from .rag import RagService
 from .seguridad import MENSAJE_DATOS_SENSIBLES, contiene_datos_sensibles, validar_imagen, validar_historial
@@ -230,6 +230,23 @@ async def laboratorio_generar(solicitud: GeneracionLaboratorio, request: Request
     except Exception as error:
         logger.error("Falló la tarea de laboratorio. tipo=%s", type(error).__name__)
         raise HTTPException(status_code=503, detail="No se pudo generar la propuesta. Intenta nuevamente.") from error
+
+
+class PracticaLaboratorio(BaseModel):
+    tarea: TareaLaboratorio
+    caso_id: str | None = Field(default=None, max_length=32)
+
+
+@app.post("/laboratorio/practica")
+async def laboratorio_practica(solicitud: PracticaLaboratorio, request: Request) -> dict:
+    """Guarda los datos de la práctica como borrador (sin llamar a la IA) para que Nexo los tenga a mano."""
+    usuario = usuario_de(request)
+    try:
+        return await run_in_threadpool(guardar_practica, solicitud.tarea, almacen, solicitud.caso_id, usuario)
+    except CasoNoEncontrado as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
 
 
 @app.post("/laboratorio/guardar")

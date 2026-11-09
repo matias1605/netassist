@@ -83,7 +83,7 @@ button { cursor: pointer; }
 .link-button:hover { color: var(--blue-dark); text-decoration: underline; }
 
 /* ---------- Panel de chat ---------- */
-.chat-panel { position: fixed; right: 24px; bottom: 24px; z-index: 40; display: flex; flex-direction: column; width: min(420px, calc(100vw - 32px)); height: min(760px, calc(100vh - 48px)); min-width: 0; overflow: hidden; background: #f4f8fa; border: 1px solid rgb(15 26 43 / 8%); border-radius: 24px; box-shadow: 0 30px 80px rgb(10 25 45 / 26%), 0 4px 14px rgb(10 25 45 / 8%); animation: aparece .25s ease-out; }
+.chat-panel { position: fixed; right: 24px; bottom: 24px; z-index: 40; display: flex; flex-direction: column; width: min(580px, calc(100vw - 32px)); height: min(760px, calc(100vh - 48px)); min-width: 0; overflow: hidden; background: #f4f8fa; border: 1px solid rgb(15 26 43 / 8%); border-radius: 24px; box-shadow: 0 30px 80px rgb(10 25 45 / 26%), 0 4px 14px rgb(10 25 45 / 8%); animation: aparece .25s ease-out; }
 .chat-cerrado .chat-panel { display: none; }
 .chat-header { position: relative; display: flex; align-items: center; gap: 4px; padding: 18px 12px 18px 22px; overflow: hidden; color: #fff; background: radial-gradient(circle at 100% 0, rgb(63 211 195 / 35%), transparent 55%), linear-gradient(135deg, #0f1a2b 0%, #14304a 60%, #0f6f68 130%); }
 .chat-header::after { content: ""; position: absolute; inset: auto -20px -40px auto; width: 140px; height: 140px; border-radius: 50%; border: 18px solid rgb(89 240 222 / 8%); pointer-events: none; }
@@ -98,18 +98,15 @@ button { cursor: pointer; }
 .chat-icon-button:focus-visible { outline: 2px solid #3fd3c3; }
 .status-dot { display: inline-block; width: 7px; height: 7px; margin-right: 4px; border-radius: 50%; background: #31ae78; box-shadow: 0 0 0 3px rgb(49 174 120 / 18%); }
 
-.quick-actions { flex-shrink: 0; padding: 12px 18px; background: #fff; border-bottom: 1px solid var(--line); }
-.quick-actions-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; cursor: pointer; color: var(--navy); font-size: 12px; list-style: none; }
-.quick-actions-heading::-webkit-details-marker { display: none; }
-.quick-actions-heading::after { content: "▾"; margin-left: auto; color: var(--muted); }
-.quick-actions:not([open]) .quick-actions-heading::after { content: "▸"; }
-.quick-actions-heading span, .quick-actions p { color: #6b7d90; font-size: 11px; }
-.quick-actions p { margin: 8px 0 0; line-height: 1.4; }
-.quick-actions-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.quick-action-button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border: 1px solid transparent; border-radius: 999px; color: #0f6f68; background: linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, #3fd3c3, #2a7fd6) border-box; font-size: 12px; font-weight: 650; box-shadow: 0 2px 8px rgb(20 149 138 / 10%); transition: transform .15s, box-shadow .15s; }
-.quick-action-button::before { content: "✦"; color: #3fbfb1; font-size: 11px; }
-.quick-action-button:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgb(20 149 138 / 18%); }
-.quick-action-button:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+
+/* Sugerencias de Nexo: bloques concretos y siguiente paso tras cada respuesta */
+.sugerencias { max-width: 100%; }
+.sugerencias p { margin: 0 0 8px; color: #4b5d70; font-size: 12.5px; line-height: 1.45; }
+.sugerencias-lista { display: flex; flex-wrap: wrap; gap: 8px; }
+.sugerencia { display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border: 1px solid transparent; border-radius: 999px; color: #0f6f68; background: linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, #3fd3c3, #2a7fd6) border-box; font-size: 12.5px; font-weight: 650; box-shadow: 0 2px 8px rgb(20 149 138 / 10%); transition: transform .15s, box-shadow .15s; }
+.sugerencia::before { content: "✦"; color: #3fbfb1; font-size: 11px; }
+.sugerencia:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgb(20 149 138 / 18%); }
+.sugerencia:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
 
 .messages { flex: 1; min-height: 100px; padding: 20px 18px 8px; overflow-y: auto; scroll-behavior: smooth; background: radial-gradient(rgb(20 149 138 / 9%) 1px, transparent 1px) 0 0 / 18px 18px, linear-gradient(180deg, #f4f8fa, #eef4f7); }
 .chat-header, .composer, .adjunto, .typing { flex-shrink: 0; }
@@ -349,7 +346,8 @@ button { cursor: pointer; }
 }
 
 /* ---------- Nexo responde en persona ---------- */
-.message-assistant { flex-direction: row; align-items: flex-start; gap: 10px; }
+.message-assistant { flex-direction: row; flex-wrap: wrap; align-items: flex-start; gap: 10px; }
+.message-assistant .sugerencias { flex: 0 0 100%; margin: -2px 0 0 50px; }
 .message-assistant .bubble { min-width: 0; }
 .message-avatar { flex: 0 0 auto; width: 40px; height: 40px; margin-top: -4px; padding: 3px; border-radius: 14px; background: #fff; box-shadow: 0 3px 10px rgb(15 26 43 / 8%); }
 .message-avatar:not(.vivo) { opacity: .55; filter: saturate(.6); }

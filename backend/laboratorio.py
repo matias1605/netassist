@@ -95,6 +95,19 @@ def preparar_tarea(tarea: TareaLaboratorio) -> dict:
     }
 
 
+def guardar_practica(tarea: TareaLaboratorio, almacen, caso_id: str | None = None, usuario: str | None = None) -> dict:
+    """Guarda los datos de la práctica como caso (borrador) sin llamar a la IA.
+
+    Exige que los datos pasen las reglas; el nombre guardado es siempre el que escribió la persona."""
+    revision = preparar_tarea(tarea)
+    if revision["errores"]:
+        raise ValueError("Corrige estos datos: " + " ".join(revision["errores"]))
+    if revision["faltantes"]:
+        raise ValueError("Completa juntos estos datos: " + "; ".join(revision["faltantes"]))
+    caso_id = almacen.guardar_caso(revision["datos"], caso_id, usuario)
+    return {"caso_id": caso_id, "estado": "practica_guardada", "comprobacion_laboratorio": "no_realizada"}
+
+
 def guardar_sesion(tarea: TareaLaboratorio, resumen: str, almacen, caso_id: str | None = None, usuario: str | None = None) -> dict:
     """Guarda como caso el resumen que Nexo dio en el chat, sin volver a llamar a la IA.
 
