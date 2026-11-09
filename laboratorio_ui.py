@@ -2,11 +2,14 @@
 import asyncio
 import json
 import logging
+import secrets
 
 import streamlit as st
 from pydantic import ValidationError
 
+from backend.casos import validar_usuario
 from backend.generador import formatear_propuesta
+from backend.informes import ESTADOS, generar_informe, nombre_archivo
 from backend.laboratorio import TareaLaboratorio, ejemplo_laboratorio, preparar_tarea, generar_tarea
 
 logger = logging.getLogger(__name__)
@@ -29,7 +32,7 @@ def _cargar_datos(datos):
 def _reabrir(almacen):
     """Carga un caso guardado y su última propuesta; el resultado queda hasta que se edite un dato."""
     try:
-        caso = almacen.obtener_caso(st.session_state.lab_caso_sel)
+        caso = almacen.obtener_caso(st.session_state.lab_caso_sel, st.session_state.lab_usuario)
     except LookupError:
         st.session_state.lab_aviso = "Caso no encontrado."
         return
@@ -59,7 +62,7 @@ def _analizar_evidencia(almacen):
     caso_id = st.session_state.get("lab_caso_id")
     st.session_state.lab_diag_aviso = ""
     try:
-        resultado = almacen.registrar_evidencia(caso_id, st.session_state.get("lab_evidencia", ""))
+        resultado = almacen.registrar_evidencia(caso_id, st.session_state.get("lab_evidencia", ""), st.session_state.lab_usuario)
     except LookupError:
         st.session_state.lab_diag_aviso = "Caso no encontrado."
         return
@@ -69,6 +72,14 @@ def _analizar_evidencia(almacen):
     st.session_state.lab_diag_omitidos = [o["motivo"] for o in resultado["omitidos"]]
     if resultado["registradas"]:
         st.session_state.lab_evidencia = ""
+
+
+def _archivar(almacen, caso_id, archivado):
+    try:
+        almacen.archivar_caso(caso_id, archivado, st.session_state.lab_usuario)
+        st.session_state.lab_aviso = "Caso archivado; vuelve a verlo con «Incluir archivados»." if archivado else "Caso restaurado."
+    except LookupError:
+        st.session_state.lab_aviso = "Caso no encontrado."
 
 
 def _descartar():
@@ -82,18 +93,36 @@ def _descartar():
 def mostrar_laboratorio(cadena, mostrar_respuesta, rag=None, almacen=None):
     if "lab_filas" not in st.session_state:
         _cargar_ejemplo()
+    if "lab_usuario" not in st.session_state:
+        st.session_state.lab_usuario = secrets.token_urlsafe(24)
     st.subheader("Espacio de laboratorio")
     st.caption("VLAN y puertos de acceso · Solo datos ficticios · Un switch, sin IP, trunk ni enrutamiento entre VLAN")
+    st.text_input("Clave personal de casos", key="lab_usuario", max_chars=64,
+                  help="Separa tus casos de los de otras personas. No es una contraseña de cuenta: guárdala para reabrir tus casos en otra sesión.")
+    try:
+        validar_usuario(st.session_state.lab_usuario)
+    except ValueError as error:
+        st.error(str(error))
+        return
+    if st.session_state.get("lab_usuario_activo") != st.session_state.lab_usuario:
+        st.session_state.lab_usuario_activo = st.session_state.lab_usuario
+        st.session_state.lab_caso_id = None
+        _descartar()
     datos_col, salida_col = st.columns([1.15, 1], gap="large")
     with datos_col:
         st.markdown("### 1. Datos de la práctica")
         st.button("Cargar ejemplo de laboratorio", on_click=_cargar_ejemplo)
         if almacen is not None:
-            casos = almacen.listar_casos()
+            estados = ["(todos)"] + list(ESTADOS)
+            filtro = st.selectbox("Estado", estados, key="lab_filtro_estado", format_func=lambda e: e if e == "(todos)" else ESTADOS[e])
+            st.checkbox("Incluir archivados", key="lab_ver_archivados")
+            casos = almacen.listar_casos(st.session_state.lab_usuario, None if filtro == "(todos)" else filtro, st.session_state.lab_ver_archivados)
             if casos:
                 st.selectbox("Casos guardados", [c["id"] for c in casos], key="lab_caso_sel",
-                             format_func=lambda i: next(f"{c['nombre'] or 'Sin nombre'} · {c['estado']} · {c['actualizado'][:16]}" for c in casos if c["id"] == i))
+                             format_func=lambda i: next(f"{c['nombre'] or 'Sin nombre'} · {ESTADOS.get(c['estado'], c['estado'])}{' · archivado' if c['archivado'] else ''} · {c['actualizado'][:16]}" for c in casos if c["id"] == i))
                 st.button("Reabrir caso", on_click=_reabrir, args=(almacen,))
+            else:
+                st.caption("No hay casos con este filtro.")
             if st.session_state.get("lab_aviso"):
                 st.warning(st.session_state.lab_aviso)
         st.selectbox("Tipo de tarea", ["configuracion", "topologia"], format_func=lambda x: "Generar configuración" if x == "configuracion" else "Generar topología", key="lab_tipo")
@@ -147,7 +176,7 @@ def mostrar_laboratorio(cadena, mostrar_respuesta, rag=None, almacen=None):
                 st.session_state.lab_resultado = None
                 try:
                     with st.spinner("Generando propuesta…"):
-                        st.session_state.lab_resultado = asyncio.run(generar_tarea(TareaLaboratorio(**revision["datos"]), confirmado, cadena, rag, almacen, st.session_state.get("lab_caso_id")))
+                        st.session_state.lab_resultado = asyncio.run(generar_tarea(TareaLaboratorio(**revision["datos"]), confirmado, cadena, rag, almacen, st.session_state.get("lab_caso_id"), st.session_state.lab_usuario))
                     if st.session_state.lab_resultado["caso_id"]:
                         st.session_state.lab_caso_id = st.session_state.lab_resultado["caso_id"]
                 except ValueError as error:
@@ -174,8 +203,17 @@ def mostrar_laboratorio(cadena, mostrar_respuesta, rag=None, almacen=None):
         else:
             st.caption("Sin propuesta para estos datos.")
         st.caption("Comprobación en laboratorio: no realizada. Generar una respuesta no ejecuta comandos ni certifica conectividad.")
-        st.markdown("### 4. Diagnóstico con evidencia")
         caso_abierto = st.session_state.get("lab_caso_id")
+        if almacen is not None and caso_abierto:
+            try:
+                caso_actual = almacen.obtener_caso(caso_abierto, st.session_state.lab_usuario)
+                informe = generar_informe(caso_actual, almacen.obtener_diagnostico(caso_abierto, usuario=st.session_state.lab_usuario),
+                                          almacen.listar_evidencias(caso_abierto, st.session_state.lab_usuario))
+                st.download_button("Descargar informe (.md)", informe, file_name=nombre_archivo(caso_actual), mime="text/markdown")
+                st.button("Restaurar caso" if caso_actual["archivado"] else "Archivar caso", on_click=_archivar, args=(almacen, caso_abierto, not caso_actual["archivado"]))
+            except LookupError:
+                st.session_state.lab_caso_id = None
+        st.markdown("### 4. Diagnóstico con evidencia")
         if almacen is None or not caso_abierto:
             st.caption("Genera o reabre un caso para diagnosticarlo con las salidas de tu simulador.")
         else:
@@ -187,7 +225,7 @@ def mostrar_laboratorio(cadena, mostrar_respuesta, rag=None, almacen=None):
             for motivo in st.session_state.get("lab_diag_omitidos", []):
                 st.warning("No se registró: " + motivo)
             try:
-                diagnostico = almacen.obtener_diagnostico(caso_abierto)
+                diagnostico = almacen.obtener_diagnostico(caso_abierto, usuario=st.session_state.lab_usuario)
             except LookupError:
                 diagnostico = None
             if diagnostico and diagnostico["estado"] != "sin_evidencia":

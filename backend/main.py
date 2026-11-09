@@ -11,9 +11,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, model_validator
 from starlette.concurrency import run_in_threadpool
 
-from .casos import AlmacenCasos, CasoNoEncontrado
+from .casos import AlmacenCasos, CasoNoEncontrado, validar_usuario
 from .config import CASOS_DB_PATH, FRONTEND_ORIGIN, SUPPORT_CONTACT
 from .acciones import obtener_acciones
+from .informes import generar_informe, nombre_archivo
 from .cadena import crear_cadena
 from .laboratorio import TareaLaboratorio, _fuentes, ejemplo_laboratorio, preparar_tarea, generar_tarea
 from .llm import MENSAJE_FALLBACK
@@ -46,7 +47,7 @@ app.add_middleware(
     allow_origins=[FRONTEND_ORIGIN],
     allow_credentials=False,
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "X-Usuario"],
 )
 
 
@@ -176,6 +177,18 @@ class ComprobacionLaboratorio(BaseModel):
     salida: str = Field(min_length=1, max_length=8000)
 
 
+class ArchivadoCaso(BaseModel):
+    archivado: bool
+
+
+def usuario_de(request: Request) -> str | None:
+    """Clave de usuario opaca enviada por el cliente. Separa casos entre personas, pero no es autenticación."""
+    try:
+        return validar_usuario(request.headers.get("X-Usuario") or None)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
 @app.get("/laboratorio/ejemplo")
 async def laboratorio_ejemplo() -> dict:
     return ejemplo_laboratorio()
@@ -191,6 +204,7 @@ async def laboratorio_preparar(tarea: TareaLaboratorio) -> dict:
 
 @app.post("/laboratorio/generar")
 async def laboratorio_generar(solicitud: GeneracionLaboratorio, request: Request) -> dict:
+    usuario = usuario_de(request)
     try:
         # Primero revisar incluso si el índice está caído, para informar datos faltantes.
         revision = preparar_tarea(solicitud.tarea)
@@ -200,7 +214,7 @@ async def laboratorio_generar(solicitud: GeneracionLaboratorio, request: Request
             raise ValueError("Revisa los datos, completa los campos faltantes y confirma antes de generar.")
         if request.app.state.rag_error is not None:
             raise HTTPException(status_code=503, detail="La base de conocimiento no está disponible. Intenta más tarde.")
-        return await generar_tarea(solicitud.tarea, solicitud.confirmado, cadena, rag_service, almacen, solicitud.caso_id)
+        return await generar_tarea(solicitud.tarea, solicitud.confirmado, cadena, rag_service, almacen, solicitud.caso_id, usuario)
     except CasoNoEncontrado as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except ValueError as error:
@@ -213,51 +227,71 @@ async def laboratorio_generar(solicitud: GeneracionLaboratorio, request: Request
 
 
 @app.get("/casos")
-async def casos_listar() -> list[dict]:
-    return await run_in_threadpool(almacen.listar_casos)
+async def casos_listar(request: Request, estado: str | None = None, archivados: bool = False) -> list[dict]:
+    """Casos de la persona (y los anteriores sin propietario). `archivados=true` incluye los archivados."""
+    return await run_in_threadpool(almacen.listar_casos, usuario_de(request), estado, archivados)
 
 
 @app.get("/casos/{caso_id}")
-async def casos_obtener(caso_id: str) -> dict:
+async def casos_obtener(caso_id: str, request: Request) -> dict:
     try:
-        return await run_in_threadpool(almacen.obtener_caso, caso_id)
+        return await run_in_threadpool(almacen.obtener_caso, caso_id, usuario_de(request))
     except CasoNoEncontrado as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
 
 
 @app.post("/casos/{caso_id}/comprobacion")
-async def casos_comprobacion(caso_id: str, datos: ComprobacionLaboratorio) -> dict:
+async def casos_comprobacion(caso_id: str, datos: ComprobacionLaboratorio, request: Request) -> dict:
     """Registra el resultado de una prueba manual en simulador o laboratorio."""
+    usuario = usuario_de(request)
     try:
-        await run_in_threadpool(almacen.registrar_comprobacion, caso_id, datos.resultado, datos.salida)
-        return await run_in_threadpool(almacen.obtener_caso, caso_id)
+        await run_in_threadpool(almacen.registrar_comprobacion, caso_id, datos.resultado, datos.salida, usuario)
+        return await run_in_threadpool(almacen.obtener_caso, caso_id, usuario)
     except CasoNoEncontrado as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
 
 
+@app.post("/casos/{caso_id}/archivado")
+async def casos_archivar(caso_id: str, datos: ArchivadoCaso, request: Request) -> dict:
+    """Archiva o restaura un caso; no borra evidencias ni propuestas."""
+    usuario = usuario_de(request)
+    try:
+        await run_in_threadpool(almacen.archivar_caso, caso_id, datos.archivado, usuario)
+        return await run_in_threadpool(almacen.obtener_caso, caso_id, usuario)
+    except CasoNoEncontrado as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
 CONSULTA_DIAGNOSTICO = "verificar VLAN y puertos de acceso show vlan brief show interfaces switchport"
 
 
+def _rag_para_fuentes():
+    return None if getattr(app.state, "rag_error", None) else rag_service
+
+
 @app.get("/casos/{caso_id}/diagnostico")
-async def casos_diagnostico(caso_id: str) -> dict:
+async def casos_diagnostico(caso_id: str, request: Request) -> dict:
     """Pasos, evidencias y hallazgos del caso. Compara salidas pegadas con lo declarado; no consulta dispositivos."""
+    usuario = usuario_de(request)
     try:
-        fuentes = await _fuentes(None if getattr(app.state, "rag_error", None) else rag_service, CONSULTA_DIAGNOSTICO)
-        return await run_in_threadpool(almacen.obtener_diagnostico, caso_id, fuentes)
+        await run_in_threadpool(almacen.obtener_caso, caso_id, usuario)  # acceso antes de consultar fuentes
+        fuentes = await _fuentes(_rag_para_fuentes(), CONSULTA_DIAGNOSTICO)
+        return await run_in_threadpool(almacen.obtener_diagnostico, caso_id, fuentes, usuario)
     except CasoNoEncontrado as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
 
 
 @app.post("/casos/{caso_id}/evidencias")
-async def casos_evidencias(caso_id: str, datos: EvidenciaDiagnostico) -> dict:
+async def casos_evidencias(caso_id: str, datos: EvidenciaDiagnostico, request: Request) -> dict:
     """Analiza salidas de show pegadas por la persona y las guarda como evidencia del caso."""
+    usuario = usuario_de(request)
     try:
-        diagnostico = await run_in_threadpool(almacen.registrar_evidencia, caso_id, datos.salida)
-        fuentes = await _fuentes(None if getattr(app.state, "rag_error", None) else rag_service, CONSULTA_DIAGNOSTICO)
+        diagnostico = await run_in_threadpool(almacen.registrar_evidencia, caso_id, datos.salida, usuario)
+        fuentes = await _fuentes(_rag_para_fuentes(), CONSULTA_DIAGNOSTICO)
         if fuentes:
-            diagnostico = {**diagnostico, **await run_in_threadpool(almacen.obtener_diagnostico, caso_id, fuentes)}
+            diagnostico = {**diagnostico, **await run_in_threadpool(almacen.obtener_diagnostico, caso_id, fuentes, usuario)}
         return diagnostico
     except CasoNoEncontrado as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
@@ -266,8 +300,22 @@ async def casos_evidencias(caso_id: str, datos: EvidenciaDiagnostico) -> dict:
 
 
 @app.get("/casos/{caso_id}/evidencias")
-async def casos_evidencias_listar(caso_id: str) -> list[dict]:
+async def casos_evidencias_listar(caso_id: str, request: Request) -> list[dict]:
     try:
-        return await run_in_threadpool(almacen.listar_evidencias, caso_id)
+        return await run_in_threadpool(almacen.listar_evidencias, caso_id, usuario_de(request))
     except CasoNoEncontrado as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@app.get("/casos/{caso_id}/informe")
+async def casos_informe(caso_id: str, request: Request) -> dict:
+    """Resumen exportable en Markdown con requisitos, propuesta, fuentes, comprobación y evidencias."""
+    usuario = usuario_de(request)
+    try:
+        caso = await run_in_threadpool(almacen.obtener_caso, caso_id, usuario)
+        fuentes = await _fuentes(_rag_para_fuentes(), CONSULTA_DIAGNOSTICO)
+        diagnostico = await run_in_threadpool(almacen.obtener_diagnostico, caso_id, fuentes, usuario)
+        evidencias = await run_in_threadpool(almacen.listar_evidencias, caso_id, usuario)
+    except CasoNoEncontrado as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"nombre_archivo": nombre_archivo(caso), "markdown": generar_informe(caso, diagnostico, evidencias)}

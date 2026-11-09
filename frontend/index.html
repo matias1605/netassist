@@ -29,7 +29,17 @@
       <section class="lab-sheet lab-cases" aria-labelledby="lab-cases-title">
         <h2 id="lab-cases-title">Casos guardados</h2>
         <p id="lab-cases-empty" class="lab-help">Aún no hay casos. Al generar una propuesta se guarda el caso para reabrirlo.</p>
+        <div class="lab-buttons">
+          <label class="lab-case-select">Estado<select id="lab-filter"><option value="">Todos</option></select></label>
+          <label class="lab-confirm"><input id="lab-archived" type="checkbox"> Incluir archivados</label>
+        </div>
         <div class="lab-buttons"><label class="lab-case-select">Caso<select id="lab-cases"></select></label><button id="lab-reopen" class="button button-quiet" type="button">Reabrir caso</button></div>
+        <div class="lab-buttons"><button id="lab-report" class="button button-quiet" type="button" disabled>Descargar informe (.md)</button><button id="lab-archive" class="button button-quiet" type="button" disabled>Archivar caso</button></div>
+        <details><summary>Mi clave de casos</summary>
+          <label class="lab-case-select">Clave personal<input id="lab-user" maxlength="64" autocomplete="off" spellcheck="false"></label>
+          <p class="lab-help">Separa tus casos de los de otras personas en este navegador. No es una contraseña de cuenta. Guárdala para reabrir tus casos desde otro navegador.</p>
+        </details>
+        <p id="lab-cases-status" role="status" class="lab-help"></p>
       </section>
       <div class="laboratorio-grid">
         <form id="laboratorio-form" class="lab-sheet">

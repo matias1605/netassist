@@ -3,6 +3,7 @@
 Separada de ChromaDB, que guarda solo conocimiento. El esquema se versiona con
 `PRAGMA user_version` y se migra al abrir la base.
 """
+import hashlib
 import json
 import re
 import sqlite3
@@ -62,7 +63,27 @@ MIGRACIONES = [
         evidencia_id INTEGER NOT NULL REFERENCES evidencias(id) ON DELETE CASCADE,
         severidad TEXT NOT NULL, texto TEXT NOT NULL, correccion TEXT NOT NULL DEFAULT '[]');
     """,
+    # Fase 5: propietario (huella de la clave de usuario; NULL en casos anteriores) y archivado.
+    """
+    ALTER TABLE casos ADD COLUMN propietario TEXT;
+    ALTER TABLE casos ADD COLUMN archivado INTEGER NOT NULL DEFAULT 0;
+    CREATE INDEX idx_casos_propietario ON casos(propietario);
+    """,
 ]
+
+
+_USUARIO = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
+
+
+def validar_usuario(usuario: str | None) -> str | None:
+    """La clave de usuario es un secreto opaco generado por el cliente; no es una autenticación."""
+    if usuario is not None and not _USUARIO.match(usuario):
+        raise ValueError("Clave de usuario no válida: usa entre 16 y 64 letras, números, guion o guion bajo.")
+    return usuario
+
+
+def _hash_usuario(usuario: str | None) -> str | None:
+    return None if validar_usuario(usuario) is None else hashlib.sha256(usuario.encode("utf-8")).hexdigest()
 
 
 def _ahora() -> str:
@@ -89,13 +110,25 @@ class AlmacenCasos:
         con.execute("PRAGMA foreign_keys=ON")
         return con
 
+    def _acceso(self, con: sqlite3.Connection, caso_id: str, usuario: str | None) -> None:
+        """Un caso ajeno es indistinguible de uno inexistente. Los casos anteriores a la fase 5 no tienen propietario."""
+        fila = con.execute("SELECT propietario FROM casos WHERE id=?", (caso_id,)).fetchone()
+        if fila is None or (fila["propietario"] is not None and fila["propietario"] != _hash_usuario(usuario)):
+            raise CasoNoEncontrado("Caso no encontrado.")
+
+    def archivar_caso(self, caso_id: str, archivado: bool, usuario: str | None = None) -> None:
+        self._validar_id(caso_id)
+        with closing(self._conectar()) as con, con:
+            self._acceso(con, caso_id, usuario)
+            con.execute("UPDATE casos SET archivado=?, actualizado=? WHERE id=?", (int(archivado), _ahora(), caso_id))
+
     @staticmethod
     def _validar_id(caso_id: str) -> str:
         if not isinstance(caso_id, str) or not _ID.match(caso_id):
             raise CasoNoEncontrado("Caso no encontrado.")
         return caso_id
 
-    def guardar_caso(self, datos: dict, caso_id: str | None = None) -> str:
+    def guardar_caso(self, datos: dict, caso_id: str | None = None, usuario: str | None = None) -> str:
         """Crea o reemplaza los datos de un caso. `datos` es TareaLaboratorio.model_dump()."""
         if contiene_datos_sensibles(json.dumps(datos, ensure_ascii=False)):
             raise ValueError(MENSAJE_DATOS_SENSIBLES)
@@ -104,15 +137,15 @@ class AlmacenCasos:
             antes = None
             if caso_id is None:
                 caso_id = uuid.uuid4().hex
-                con.execute("INSERT INTO casos(id, nombre, tipo, creado, actualizado) VALUES (?,?,?,?,?)",
-                            (caso_id, datos["nombre"], datos["tipo"], ahora, ahora))
+                con.execute("INSERT INTO casos(id, nombre, tipo, creado, actualizado, propietario) VALUES (?,?,?,?,?,?)",
+                            (caso_id, datos["nombre"], datos["tipo"], ahora, ahora, _hash_usuario(usuario)))
             else:
                 self._validar_id(caso_id)
-                if not con.execute("SELECT 1 FROM casos WHERE id=?", (caso_id,)).fetchone():
-                    raise CasoNoEncontrado("Caso no encontrado.")
+                self._acceso(con, caso_id, usuario)
                 antes = self._firma_diagnostico(con, caso_id)
-                con.execute("UPDATE casos SET nombre=?, tipo=?, estado='borrador', actualizado=? WHERE id=?",
-                            (datos["nombre"], datos["tipo"], ahora, caso_id))
+                # Un caso anterior sin propietario pasa a ser de quien lo regenera.
+                con.execute("UPDATE casos SET nombre=?, tipo=?, estado='borrador', actualizado=?, propietario=COALESCE(propietario, ?) WHERE id=?",
+                            (datos["nombre"], datos["tipo"], ahora, _hash_usuario(usuario), caso_id))
                 for tabla in ("equipos", "conexiones", "requisitos"):
                     con.execute(f"DELETE FROM {tabla} WHERE caso_id=?", (caso_id,))
             equipo = datos["equipo"]
@@ -133,18 +166,17 @@ class AlmacenCasos:
         filas = con.execute("SELECT vlan_id, vlan_nombre, puerto, host FROM conexiones WHERE caso_id=? ORDER BY posicion", (caso_id,)).fetchall()
         return None if equipo is None else [equipo["alias"], [tuple(f) for f in filas]]
 
-    def guardar_propuesta(self, caso_id: str, propuesta: dict, explicacion: str = "") -> int:
+    def guardar_propuesta(self, caso_id: str, propuesta: dict, explicacion: str = "", usuario: str | None = None) -> int:
         self._validar_id(caso_id)
         with closing(self._conectar()) as con, con:
-            if not con.execute("SELECT 1 FROM casos WHERE id=?", (caso_id,)).fetchone():
-                raise CasoNoEncontrado("Caso no encontrado.")
+            self._acceso(con, caso_id, usuario)
             cursor = con.execute(
                 "INSERT INTO propuestas(caso_id, contenido, explicacion, validacion, creada) VALUES (?,?,?,?,?)",
                 (caso_id, json.dumps(propuesta, ensure_ascii=False), explicacion, propuesta["estado_validacion"], _ahora()))
             con.execute("UPDATE casos SET estado='propuesta', actualizado=? WHERE id=?", (_ahora(), caso_id))
             return cursor.lastrowid
 
-    def registrar_comprobacion(self, caso_id: str, resultado: str, salida: str) -> None:
+    def registrar_comprobacion(self, caso_id: str, resultado: str, salida: str, usuario: str | None = None) -> None:
         """Anota el resultado manual en simulador/laboratorio sobre la última propuesta."""
         if resultado not in {"correcta", "fallida"}:
             raise ValueError("El resultado debe ser «correcta» o «fallida».")
@@ -154,8 +186,7 @@ class AlmacenCasos:
             raise ValueError(MENSAJE_DATOS_SENSIBLES)
         self._validar_id(caso_id)
         with closing(self._conectar()) as con, con:
-            if not con.execute("SELECT 1 FROM casos WHERE id=?", (caso_id,)).fetchone():
-                raise CasoNoEncontrado("Caso no encontrado.")
+            self._acceso(con, caso_id, usuario)
             fila = con.execute("SELECT id FROM propuestas WHERE caso_id=? ORDER BY id DESC LIMIT 1", (caso_id,)).fetchone()
             if not fila:
                 raise ValueError("El caso no tiene una propuesta para comprobar.")
@@ -176,7 +207,7 @@ class AlmacenCasos:
             con.execute("INSERT INTO pasos(caso_id, clave, orden, titulo, comando) VALUES (?,?,?,?,?)",
                         (caso_id, paso["clave"], orden, paso["titulo"], paso["comando"]))
 
-    def registrar_evidencia(self, caso_id: str, salida: str) -> dict:
+    def registrar_evidencia(self, caso_id: str, salida: str, usuario: str | None = None) -> dict:
         """Analiza las salidas pegadas, guarda las que corresponden a un paso y devuelve el diagnóstico.
 
         Un paso ya completado no se repite y la misma salida no se registra dos veces para un paso.
@@ -188,8 +219,7 @@ class AlmacenCasos:
         self._validar_id(caso_id)
         registradas, omitidos = [], []
         with closing(self._conectar()) as con, con:
-            if not con.execute("SELECT 1 FROM casos WHERE id=?", (caso_id,)).fetchone():
-                raise CasoNoEncontrado("Caso no encontrado.")
+            self._acceso(con, caso_id, usuario)
             self._asegurar_pasos(con, caso_id)
             esperado = self._esperado(con, caso_id)
             for bloque in dividir_bloques(salida):
@@ -232,23 +262,21 @@ class AlmacenCasos:
         diagnostico["texto"] = formatear_diagnostico(diagnostico)
         return diagnostico
 
-    def obtener_diagnostico(self, caso_id: str, fuentes: list[str] | None = None) -> dict:
+    def obtener_diagnostico(self, caso_id: str, fuentes: list[str] | None = None, usuario: str | None = None) -> dict:
         self._validar_id(caso_id)
         with closing(self._conectar()) as con, con:
-            if not con.execute("SELECT 1 FROM casos WHERE id=?", (caso_id,)).fetchone():
-                raise CasoNoEncontrado("Caso no encontrado.")
+            self._acceso(con, caso_id, usuario)
             diagnostico = self._leer_diagnostico(con, caso_id)
         if fuentes:
             diagnostico["fuentes"] = fuentes
             diagnostico["texto"] = formatear_diagnostico(diagnostico)
         return diagnostico
 
-    def listar_evidencias(self, caso_id: str) -> list[dict]:
+    def listar_evidencias(self, caso_id: str, usuario: str | None = None) -> list[dict]:
         """Todas las evidencias del caso, vigentes o no, con sus observaciones, para trazabilidad."""
         self._validar_id(caso_id)
         with closing(self._conectar()) as con:
-            if not con.execute("SELECT 1 FROM casos WHERE id=?", (caso_id,)).fetchone():
-                raise CasoNoEncontrado("Caso no encontrado.")
+            self._acceso(con, caso_id, usuario)
             resultado = []
             for ev in con.execute("SELECT * FROM evidencias WHERE caso_id=? ORDER BY id", (caso_id,)).fetchall():
                 observaciones = [{"severidad": o["severidad"], "texto": o["texto"]}
@@ -257,23 +285,34 @@ class AlmacenCasos:
                                   "vigente": bool(ev["vigente"]), "creada": ev["creada"], "observaciones": observaciones})
         return resultado
 
-    def listar_casos(self) -> list[dict]:
+    def listar_casos(self, usuario: str | None = None, estado: str | None = None, archivados: bool = False) -> list[dict]:
+        """Casos propios (y los anteriores sin propietario), más recientes primero. Los archivados se piden aparte."""
+        huella = _hash_usuario(usuario)
+        condiciones, parametros = ["(propietario IS NULL OR propietario = ?)"], [huella]
+        if estado:
+            condiciones.append("estado = ?")
+            parametros.append(estado)
+        if not archivados:
+            condiciones.append("archivado = 0")
         with closing(self._conectar()) as con:
-            filas = con.execute("SELECT id, nombre, tipo, estado, actualizado FROM casos ORDER BY actualizado DESC, rowid DESC LIMIT 100").fetchall()
-        return [dict(f) for f in filas]
+            filas = con.execute(
+                "SELECT id, nombre, tipo, estado, archivado, creado, actualizado, "
+                "(SELECT COUNT(*) FROM evidencias e WHERE e.caso_id = casos.id AND e.vigente = 1) AS evidencias, "
+                "(SELECT comprobacion FROM propuestas p WHERE p.caso_id = casos.id ORDER BY p.id DESC LIMIT 1) AS comprobacion "
+                "FROM casos WHERE " + " AND ".join(condiciones) + " ORDER BY actualizado DESC, rowid DESC LIMIT 100", parametros).fetchall()
+        return [{**dict(f), "archivado": bool(f["archivado"])} for f in filas]
 
-    def obtener_caso(self, caso_id: str) -> dict:
+    def obtener_caso(self, caso_id: str, usuario: str | None = None) -> dict:
         self._validar_id(caso_id)
         with closing(self._conectar()) as con:
+            self._acceso(con, caso_id, usuario)
             caso = con.execute("SELECT * FROM casos WHERE id=?", (caso_id,)).fetchone()
-            if not caso:
-                raise CasoNoEncontrado("Caso no encontrado.")
             equipo = con.execute("SELECT alias, modelo, ios FROM equipos WHERE caso_id=?", (caso_id,)).fetchone()
             vlans = con.execute("SELECT vlan_id AS id, vlan_nombre AS nombre, puerto, host FROM conexiones WHERE caso_id=? ORDER BY posicion", (caso_id,)).fetchall()
             texto = con.execute("SELECT texto FROM requisitos WHERE caso_id=?", (caso_id,)).fetchone()
             propuesta = con.execute("SELECT * FROM propuestas WHERE caso_id=? ORDER BY id DESC LIMIT 1", (caso_id,)).fetchone()
         resultado = {
-            "caso_id": caso["id"], "estado": caso["estado"], "creado": caso["creado"], "actualizado": caso["actualizado"],
+            "caso_id": caso["id"], "estado": caso["estado"], "archivado": bool(caso["archivado"]), "creado": caso["creado"], "actualizado": caso["actualizado"],
             "tarea": {"tipo": caso["tipo"], "nombre": caso["nombre"], "equipo": dict(equipo),
                       "vlans": [dict(v) for v in vlans], "objetivo": texto["texto"] if texto else ""},
             "propuesta": None,

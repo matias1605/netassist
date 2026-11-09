@@ -9,6 +9,29 @@ let labRevision = null;
 let labBusy = false;
 let labCaseId = null;
 const labCases = document.getElementById("lab-cases");
+const labUserInput = document.getElementById("lab-user");
+const labFilter = document.getElementById("lab-filter");
+const labArchived = document.getElementById("lab-archived");
+const labCasesStatus = document.getElementById("lab-cases-status");
+const LAB_ESTADOS = { borrador: "Borrador", propuesta: "Propuesta generada", comprobado: "Comprobado en laboratorio", comprobacion_fallida: "Comprobación fallida", en_diagnostico: "En diagnóstico", diagnostico_coherente: "Salidas coherentes" };
+let labArchivedCase = false;
+
+// Clave personal opaca para separar casos entre personas del mismo navegador/servidor; no es autenticación.
+function labNewUser() {
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  return [...bytes].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+function labUser() {
+  if (!labUser.value) {
+    try { labUser.value = localStorage.getItem("netassist_usuario"); } catch { /* sin almacenamiento */ }
+    if (!/^[A-Za-z0-9_-]{16,64}$/.test(labUser.value || "")) {
+      labUser.value = labNewUser();
+      try { localStorage.setItem("netassist_usuario", labUser.value); } catch { /* la clave dura lo que dure la pestaña */ }
+    }
+  }
+  return labUser.value;
+}
+function labHeaders(extra = {}) { return { "X-Usuario": labUser(), ...extra }; }
 
 function labInvalidate() {
   labRevision = null;
@@ -28,6 +51,8 @@ function labSetBusy(busy) {
   document.getElementById("lab-discard").disabled = busy;
   labGenerate.disabled = busy || !labRevision || labRevision.faltantes.length > 0 || labRevision.errores.length > 0 || !labConfirm.checked;
   labCases.disabled = busy; document.getElementById("lab-reopen").disabled = busy || !labCases.options.length;
+  document.getElementById("lab-report").disabled = busy || !labCaseId;
+  document.getElementById("lab-archive").disabled = busy || !labCaseId;
   document.getElementById("lab-add").disabled = busy || labPorts.children.length >= 16;
 }
 
@@ -68,7 +93,7 @@ function labRead() {
 }
 
 async function labRequest(path, body) {
-  const response = await fetch(`${API_BASE}/laboratorio/${path}`, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {});
+  const response = await fetch(`${API_BASE}/laboratorio/${path}`, body ? { method: "POST", headers: labHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(body) } : { headers: labHeaders() });
   const data = await response.json();
   if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Revisa los campos y los límites de longitud del formulario.");
   return data;
@@ -138,6 +163,7 @@ labGenerate.addEventListener("click", async () => {
     document.getElementById("lab-result-state").textContent = data.estado === "respuesta_generada" ? "Propuesta con explicación de IA · Validada por reglas, pendiente de comprobar en laboratorio" : "Propuesta sin explicación de IA · Revisa el aviso";
     labStatus.textContent = `Caso guardado (${String(data.caso_id).slice(0, 8)}). No se ejecutaron comandos.`;
     labResetDiagnosis(labCaseId);
+    labMarkArchived(false);
     labLoadCases();
   } catch (error) {
     document.getElementById("lab-result-state").textContent = "No se pudo generar una propuesta";
@@ -154,10 +180,15 @@ document.getElementById("lab-result").addEventListener("click", async event => {
 
 async function labLoadCases() {
   try {
-    const casos = await labRequestRoot("casos");
+    const consulta = new URLSearchParams();
+    if (labFilter.value) consulta.set("estado", labFilter.value);
+    if (labArchived.checked) consulta.set("archivados", "true");
+    const casos = await labRequestRoot(`casos${consulta.size ? `?${consulta}` : ""}`);
     const selected = labCases.value;
-    labCases.replaceChildren(...casos.map(caso => new Option(`${caso.nombre || "Sin nombre"} · ${caso.estado} · ${caso.actualizado.slice(0, 16).replace("T", " ")}`, caso.id)));
+    labCases.replaceChildren(...casos.map(caso => new Option(`${caso.nombre || "Sin nombre"} · ${LAB_ESTADOS[caso.estado] || caso.estado}${caso.archivado ? " · archivado" : ""} · ${caso.actualizado.slice(0, 16).replace("T", " ")}`, caso.id)));
     if (selected && casos.some(caso => caso.id === selected)) labCases.value = selected;
+    const filtrando = !!labFilter.value || labArchived.checked;
+    document.getElementById("lab-cases-empty").textContent = filtrando ? "No hay casos con este filtro." : "Aún no hay casos. Al generar una propuesta se guarda el caso para reabrirlo.";
     document.getElementById("lab-cases-empty").classList.toggle("hidden", casos.length > 0);
     labCases.closest(".lab-buttons").classList.toggle("hidden", casos.length === 0);
     labSetBusy(labBusy);
@@ -165,7 +196,7 @@ async function labLoadCases() {
 }
 
 async function labRequestRoot(path) {
-  const response = await fetch(`${API_BASE}/${path}`);
+  const response = await fetch(`${API_BASE}/${path}`, { headers: labHeaders() });
   const data = await response.json();
   if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "No se pudo leer el caso.");
   return data;
@@ -183,6 +214,7 @@ document.getElementById("lab-reopen").addEventListener("click", async () => {
     data.vlans.forEach(labAddPort);
     labInvalidate();
     labCaseId = caso.caso_id;
+    labMarkArchived(caso.archivado);
     if (caso.propuesta) {
       const result = document.getElementById("lab-result");
       result.innerHTML = renderMarkdown(caso.propuesta.texto);
@@ -231,7 +263,7 @@ document.getElementById("lab-diagnose").addEventListener("click", async () => {
   labSetBusy(true);
   labDiagStatus.textContent = "Analizando salidas…";
   try {
-    const response = await fetch(`${API_BASE}/casos/${encodeURIComponent(labCaseId)}/evidencias`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ salida }) });
+    const response = await fetch(`${API_BASE}/casos/${encodeURIComponent(labCaseId)}/evidencias`, { method: "POST", headers: labHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ salida }) });
     const data = await response.json();
     if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "No se pudo analizar la salida.");
     labShowDiagnosis(data, data.omitidos);
@@ -240,6 +272,54 @@ document.getElementById("lab-diagnose").addEventListener("click", async () => {
     labLoadCases();
   } catch (error) { labDiagStatus.textContent = error.message; }
   finally { labSetBusy(false); }
+});
+
+// ----- Fase 5: informe, archivado y clave personal -----
+function labMarkArchived(archived) {
+  labArchivedCase = archived;
+  document.getElementById("lab-archive").textContent = archived ? "Restaurar caso" : "Archivar caso";
+}
+
+document.getElementById("lab-report").addEventListener("click", async () => {
+  if (labBusy || !labCaseId) return;
+  labSetBusy(true);
+  try {
+    const data = await labRequestRoot(`casos/${encodeURIComponent(labCaseId)}/informe`);
+    const url = URL.createObjectURL(new Blob([data.markdown], { type: "text/markdown;charset=utf-8" }));
+    const link = Object.assign(document.createElement("a"), { href: url, download: data.nombre_archivo });
+    document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    labCasesStatus.textContent = `Informe descargado: ${data.nombre_archivo}`;
+  } catch (error) { labCasesStatus.textContent = error.message; }
+  finally { labSetBusy(false); }
+});
+
+document.getElementById("lab-archive").addEventListener("click", async () => {
+  if (labBusy || !labCaseId) return;
+  labSetBusy(true);
+  try {
+    const response = await fetch(`${API_BASE}/casos/${encodeURIComponent(labCaseId)}/archivado`, { method: "POST", headers: labHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ archivado: !labArchivedCase }) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "No se pudo cambiar el estado de archivo.");
+    labMarkArchived(data.archivado);
+    labCasesStatus.textContent = data.archivado ? "Caso archivado. Actívalo con «Incluir archivados»." : "Caso restaurado.";
+    await labLoadCases();
+  } catch (error) { labCasesStatus.textContent = error.message; }
+  finally { labSetBusy(false); }
+});
+
+labFilter.append(...Object.entries(LAB_ESTADOS).map(([valor, texto]) => new Option(texto, valor)));
+labFilter.addEventListener("change", labLoadCases);
+labArchived.addEventListener("change", labLoadCases);
+labUserInput.value = labUser();
+labUserInput.addEventListener("change", () => {
+  const value = labUserInput.value.trim();
+  if (!/^[A-Za-z0-9_-]{16,64}$/.test(value)) { labCasesStatus.textContent = "Clave no válida: usa entre 16 y 64 letras, números, guion o guion bajo."; labUserInput.value = labUser(); return; }
+  labUser.value = value;
+  try { localStorage.setItem("netassist_usuario", value); } catch { /* solo esta pestaña */ }
+  labCaseId = null; labMarkArchived(false); labResetDiagnosis(null); labInvalidate();
+  labCasesStatus.textContent = "Clave cambiada. Se muestran los casos de esa clave.";
+  labLoadCases();
 });
 
 labResetDiagnosis(null);

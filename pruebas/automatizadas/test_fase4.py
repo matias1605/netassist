@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from streamlit.testing.v1 import AppTest
 
 from backend import main
-from backend.casos import AlmacenCasos, CasoNoEncontrado
+from backend.casos import MIGRACIONES, AlmacenCasos, CasoNoEncontrado
 from backend.diagnostico import analizar_bloque, dividir_bloques, esperado_desde_tarea, pasos_base
 from backend.laboratorio import ejemplo_laboratorio
 
@@ -213,7 +213,7 @@ class DiagnosticoAlmacenTests(unittest.TestCase):
         nueva = AlmacenCasos(self.ruta)
         self.assertEqual(nueva.obtener_diagnostico(self.caso)["pasos"][0]["estado"], "completado")
         with closing(sqlite3.connect(self.ruta)) as con:
-            self.assertEqual(con.execute("PRAGMA user_version").fetchone()[0], 2)
+            self.assertEqual(con.execute("PRAGMA user_version").fetchone()[0], len(MIGRACIONES))
         # Base creada con el esquema de la fase 3 (versión 1) se actualiza sin perder casos.
         antigua = Path(self.tmp.name) / "antigua.db"
         from backend import casos

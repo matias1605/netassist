@@ -33,7 +33,7 @@ Este avance prepara la interacción. No equivale a un generador validado, un dia
 | 2. Espacio de laboratorio | Completada (pruebas locales, 09/11/2026) | Acciones rápidas conservadas; formulario de equipo, VLAN/conexiones y requisitos; revisión explícita y panel de resultados en ambas interfaces | Se inicia una tarea desde un formulario, se revisan los datos y se diferencia claramente propuesta de resultado comprobado. |
 | 3. Generador VLAN | Implementada (pruebas locales, 09/11/2026); comprobación en simulador pendiente | Solicitud estructurada, validadores, comandos por equipo, verificaciones y persistencia mínima del caso | Faltan datos → se solicitan; VLAN/puertos inválidos → se rechazan; un caso de referencia se comprueba en simulador y puede reabrirse. |
 | 4. Diagnóstico con evidencia | Implementada (pruebas locales, 09/11/2026); comprobación con salidas reales de simulador pendiente | Analizador de salidas del escenario, pasos y resultados persistentes, fuentes | Cada observación referencia evidencia; no se repiten pasos completados y los resultados ambiguos piden aclaración. |
-| 5. Casos e informes | Por hacer | Lista de casos, estados, resumen exportable, acceso por usuario cuando corresponda | Se recuperan requisitos, propuestas, fuentes y evidencias; un usuario no accede a casos ajenos. |
+| 5. Casos e informes | Implementada (pruebas locales, 09/11/2026); sin autenticación real | Lista de casos, estados, resumen exportable, acceso por usuario cuando corresponda | Se recuperan requisitos, propuestas, fuentes y evidencias; un usuario no accede a casos ajenos. |
 | 6. Demostración y evaluación | Por hacer | Escenarios reproducibles, fallos de proveedor, casos incompletos y métricas | Se presenta evidencia de funcionamiento, limitaciones y comparación contra el chat inicial. |
 
 ## Diseño técnico previsto
@@ -141,3 +141,19 @@ Estado: **implementada y verificada con pruebas automatizadas y smoke de navegad
 Pruebas: 86 automatizadas satisfactorias (57 previas y 29 nuevas en `test_fase4.py`: analizador, almacén, API y Streamlit). Se actualizó una aserción de fase 3 para que la versión de esquema siga a las migraciones. Smoke en Chrome con API real y base temporal: caso generado, salida con un puerto en la VLAN 1 → hallazgo `E1`, corrección propuesta, pasos pendientes y fuente citada. Evidencias: `pruebas/verificacion_fase4.md`, `pruebas/resultado_fase4.txt`.
 
 Límites: cubre solo VLAN y puertos de acceso en un switch; no interpreta `show running-config`, `show interfaces status` ni trunk; el analizador se probó con salidas redactadas a mano; sin usuarios ni acceso por usuario (fase 5); la resolución confirmada depende de que la persona pegue la salida posterior a corregir; sin pruebas con simulador ni proveedores reales; la vista móvil del panel no se midió.
+
+## Resultado de la fase 5 — 9 de noviembre de 2026
+
+Estado: **implementada y verificada con pruebas automatizadas y smoke de navegador**. La separación entre usuarios usa una clave personal opaca, no una cuenta autenticada: evita que una persona vea casos ajenos en el uso normal, pero no sustituye un inicio de sesión.
+
+| Entregable | Implementación y resultado |
+|---|---|
+| Acceso por usuario | Migración 3: `casos.propietario` guarda la huella SHA-256 de una clave personal (16–64 caracteres `A-Za-z0-9_-`) que el cliente genera y envía en la cabecera `X-Usuario`; la clave no se guarda en claro. Un caso ajeno responde igual que uno inexistente (404) en todas las operaciones: leer, listar, regenerar, comprobar, diagnosticar, archivar e informar. Clave inválida: 422. |
+| Casos anteriores | Los creados antes de la fase 5 no tienen propietario y siguen accesibles; quien los regenera pasa a ser su propietario. Sin cabecera solo se ven esos casos. |
+| Estados y lista | Lista con estado legible, número de evidencias vigentes y resultado de comprobación; filtro `?estado=`; archivado reversible (`POST /casos/{id}/archivado`) que oculta el caso sin borrar datos (`?archivados=true` lo incluye). |
+| Informe exportable | `backend/informes.py` y `GET /casos/{id}/informe` (Markdown): datos y requisitos declarados, propuesta con validación y comprobación, comandos no ejecutados, advertencias, fuentes, comprobación manual, diagnóstico, evidencias vigentes con su salida y observaciones, evidencias fuera de vigencia contadas y limitaciones. Las salidas pegadas no pueden cerrar los bloques de código. |
+| Interfaces | Web: filtro por estado, incluir archivados, descarga del informe, archivar/restaurar y clave personal editable (en `localStorage`). Streamlit: clave de sesión editable (con aviso de guardarla), filtro, archivados, `st.download_button` del informe y archivar/restaurar. |
+
+Pruebas: 102 automatizadas satisfactorias (86 previas y 16 nuevas en `test_fase5.py`: acceso cruzado en todas las operaciones y rutas, clave inválida, casos sin propietario y adopción, archivado, filtros, contenido del informe, API, CORS y Streamlit). Se actualizó una prueba de Streamlit de fase 3 para usar la clave de sesión. Smoke en Chrome con API real y base temporal: caso generado, informe descargable, 404 con otra clave y sin clave, archivado desde la interfaz y reaparición con «Incluir archivados».
+
+Límites: la clave viaja en una cabecera sin cifrado propio (usar HTTPS al publicar) y quien la conoce accede a los casos; no hay registro, recuperación ni caducidad de claves, ni roles; una instancia local sin coordinación en red; el informe no se firma ni versiona; no se midió la vista móvil de los controles nuevos.

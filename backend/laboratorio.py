@@ -109,7 +109,7 @@ async def _fuentes(rag, consulta: str = "configurar VLAN y puertos de acceso swi
     return sorted({str(f["archivo"]) for f in fragmentos})
 
 
-async def generar_tarea(tarea: TareaLaboratorio, confirmado: bool, cadena, rag=None, almacen=None, caso_id: str | None = None) -> dict:
+async def generar_tarea(tarea: TareaLaboratorio, confirmado: bool, cadena, rag=None, almacen=None, caso_id: str | None = None, usuario: str | None = None) -> dict:
     """Exige revisión explícita y reglas aprobadas; con `almacen` guarda el caso y la propuesta."""
     revision = preparar_tarea(tarea)
     if not confirmado:
@@ -125,6 +125,6 @@ async def generar_tarea(tarea: TareaLaboratorio, confirmado: bool, cadena, rag=N
     resultado = {**revision, "estado": estado, "respuesta": respuesta, "caso_id": None,
                  "texto": formatear_propuesta(revision["propuesta"], explicacion) + ("" if explicacion else "\n\n" + respuesta)}
     if almacen is not None:
-        resultado["caso_id"] = almacen.guardar_caso(revision["datos"], caso_id)
-        almacen.guardar_propuesta(resultado["caso_id"], revision["propuesta"], explicacion)
+        resultado["caso_id"] = almacen.guardar_caso(revision["datos"], caso_id, usuario)
+        almacen.guardar_propuesta(resultado["caso_id"], revision["propuesta"], explicacion, usuario)
     return resultado

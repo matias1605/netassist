@@ -1,0 +1,198 @@
+test_bloquea_historial (test_fase1.ApiTests.test_bloquea_historial) ... INFO:httpx:HTTP Request: POST http://testserver/chat "HTTP/1.1 200 OK"
+ok
+test_rechaza_limites_y_adjuntos (test_fase1.ApiTests.test_rechaza_limites_y_adjuntos) ... INFO:httpx:HTTP Request: POST http://testserver/chat "HTTP/1.1 422 Unprocessable Entity"
+INFO:httpx:HTTP Request: POST http://testserver/chat "HTTP/1.1 422 Unprocessable Entity"
+INFO:httpx:HTTP Request: POST http://testserver/chat "HTTP/1.1 422 Unprocessable Entity"
+ok
+test_reindex_administracion_y_fallo_no_deshabilita_chat (test_fase1.ApiTests.test_reindex_administracion_y_fallo_no_deshabilita_chat) ... INFO:httpx:HTTP Request: POST http://testserver/reindexar "HTTP/1.1 403 Forbidden"
+ERROR:backend.main:Falló la reindexación; se conserva el índice anterior. tipo=RuntimeError
+INFO:httpx:HTTP Request: POST http://testserver/reindexar "HTTP/1.1 503 Service Unavailable"
+INFO:httpx:HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+ok
+test_historial_bloqueado_en_ambos_roles (test_fase1.CadenaTests.test_historial_bloqueado_en_ambos_roles) ... ok
+test_imagen_respaldo_aviso_garantizado (test_fase1.CadenaTests.test_imagen_respaldo_aviso_garantizado) ... WARNING:backend.llm:proveedor=gemini resultado=error tipo=RuntimeError latencia_ms=0
+INFO:backend.llm:proveedor=groq resultado=ok latencia_ms=0 contingencia=True
+ok
+test_prompt_real_y_corpus_no_bloquean_laboratorio (test_fase1.CadenaTests.test_prompt_real_y_corpus_no_bloquean_laboratorio) ... INFO:backend.llm:proveedor=gemini resultado=ok latencia_ms=0 contingencia=False
+ok
+test_proveedores (test_fase1.CadenaTests.test_proveedores) ... INFO:backend.llm:proveedor=gemini resultado=ok latencia_ms=0 contingencia=False
+WARNING:backend.llm:proveedor=gemini resultado=error tipo=RuntimeError latencia_ms=0
+INFO:backend.llm:proveedor=groq resultado=ok latencia_ms=0 contingencia=True
+WARNING:backend.llm:proveedor=gemini resultado=error tipo=RuntimeError latencia_ms=0
+WARNING:backend.llm:proveedor=groq resultado=error tipo=RuntimeError latencia_ms=0
+WARNING:backend.llm:proveedor=gemini resultado=error tipo=ValueError latencia_ms=0
+INFO:backend.llm:proveedor=groq resultado=ok latencia_ms=0 contingencia=True
+ok
+test_recuperacion_contextual_y_acciones (test_fase1.CadenaTests.test_recuperacion_contextual_y_acciones) ... ok
+test_ruta_alternativa_bloquea_historial (test_fase1.CadenaTests.test_ruta_alternativa_bloquea_historial) ... ok
+test_candidata_incompleta_y_sin_relevancia_visual (test_fase1.IndiceTests.test_candidata_incompleta_y_sin_relevancia_visual) ... INFO:backend.rag:Índice RAG actualizado: 1 archivo(s), 1 fragmento(s).
+ok
+test_fallos_conservan_indice_y_reinicio (test_fase1.IndiceTests.test_fallos_conservan_indice_y_reinicio) ... INFO:backend.rag:Índice RAG actualizado: 1 archivo(s), 1 fragmento(s).
+ok
+test_publicacion_y_reuso_sin_embeddings (test_fase1.IndiceTests.test_publicacion_y_reuso_sin_embeddings) ... INFO:backend.rag:Índice RAG actualizado: 1 archivo(s), 1 fragmento(s).
+INFO:backend.rag:Índice RAG actualizado: 1 archivo(s), 1 fragmento(s).
+ok
+test_vacio_y_bloqueo_concurrente (test_fase1.IndiceTests.test_vacio_y_bloqueo_concurrente) ... INFO:backend.rag:Índice RAG actualizado: 1 archivo(s), 1 fragmento(s).
+ok
+test_imagen_decodificada_y_confirmada (test_fase1.SeguridadTests.test_imagen_decodificada_y_confirmada) ... ok
+test_limites (test_fase1.SeguridadTests.test_limites) ... ok
+test_politica_laboratorio (test_fase1.SeguridadTests.test_politica_laboratorio) ... ok
+test_gemini_clave_en_cabecera_y_groq_sin_imagen (test_fase1.TransporteTests.test_gemini_clave_en_cabecera_y_groq_sin_imagen) ... INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/modelo:generateContent "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+ok
+test_log_no_expone_excepcion (test_fase1.TransporteTests.test_log_no_expone_excepcion) ... ok
+test_datos_sensibles_no_generan (test_fase2.ApiLaboratorioTests.test_datos_sensibles_no_generan) ... INFO:httpx:HTTP Request: POST http://testserver/laboratorio/preparar "HTTP/1.1 422 Unprocessable Entity"
+INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 422 Unprocessable Entity"
+ok
+test_ejemplo_y_preparar_no_llaman_ia (test_fase2.ApiLaboratorioTests.test_ejemplo_y_preparar_no_llaman_ia) ... INFO:httpx:HTTP Request: GET http://testserver/laboratorio/ejemplo "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://testserver/laboratorio/preparar "HTTP/1.1 200 OK"
+ok
+test_estado_resultado_y_fallos (test_fase2.ApiLaboratorioTests.test_estado_resultado_y_fallos) ... INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 200 OK"
+ERROR:backend.main:Falló la tarea de laboratorio. tipo=RuntimeError
+INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 503 Service Unavailable"
+INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 503 Service Unavailable"
+ok
+test_exige_revision_y_datos_completos (test_fase2.ApiLaboratorioTests.test_exige_revision_y_datos_completos) ... INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 422 Unprocessable Entity"
+INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 422 Unprocessable Entity"
+ok
+test_confirma_y_no_certifica_laboratorio (test_fase2.LaboratorioTests.test_confirma_y_no_certifica_laboratorio) ... ok
+test_datos_bloqueados_y_limites (test_fase2.LaboratorioTests.test_datos_bloqueados_y_limites) ... ok
+test_ejemplo_y_revision_sin_generacion (test_fase2.LaboratorioTests.test_ejemplo_y_revision_sin_generacion) ... ok
+test_faltantes_juntos_no_generan (test_fase2.LaboratorioTests.test_faltantes_juntos_no_generan) ... ok
+test_respaldo_total_no_es_propuesta (test_fase2.LaboratorioTests.test_respaldo_total_no_es_propuesta) ... ok
+test_sin_confirmacion_no_genera (test_fase2.LaboratorioTests.test_sin_confirmacion_no_genera) ... ok
+test_topologia_no_inventa_modelo (test_fase2.LaboratorioTests.test_topologia_no_inventa_modelo) ... ok
+test_faltantes_descartar_y_recargar_ejemplo (test_fase2.StreamlitLaboratorioTests.test_faltantes_descartar_y_recargar_ejemplo) ... 2026-11-09 12:30:46.408 WARNING streamlit.runtime.scriptrunner_utils.script_run_context: Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+ok
+test_revisar_confirmar_generar_y_editar_invalida (test_fase2.StreamlitLaboratorioTests.test_revisar_confirmar_generar_y_editar_invalida) ... 2026-11-09 12:30:47.576 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+ok
+test_comprobacion_manual (test_fase3.AlmacenTests.test_comprobacion_manual) ... ok
+test_comprobacion_sin_propuesta (test_fase3.AlmacenTests.test_comprobacion_sin_propuesta) ... ok
+test_datos_sensibles_no_se_guardan (test_fase3.AlmacenTests.test_datos_sensibles_no_se_guardan) ... ok
+test_esquema_versionado_y_claves_foraneas (test_fase3.AlmacenTests.test_esquema_versionado_y_claves_foraneas) ... ok
+test_fallo_de_rag_no_impide_propuesta (test_fase3.AlmacenTests.test_fallo_de_rag_no_impide_propuesta) ... ok
+test_guardar_reabrir_y_fuentes (test_fase3.AlmacenTests.test_guardar_reabrir_y_fuentes) ... ok
+test_ids_invalidos_y_desconocidos (test_fase3.AlmacenTests.test_ids_invalidos_y_desconocidos) ... ok
+test_proveedores_caidos_conserva_propuesta_determinista (test_fase3.AlmacenTests.test_proveedores_caidos_conserva_propuesta_determinista) ... ok
+test_rechazo_y_faltantes_no_guardan_ni_llaman_ia (test_fase3.AlmacenTests.test_rechazo_y_faltantes_no_guardan_ni_llaman_ia) ... ok
+test_regenerar_conserva_caso_y_actualiza_datos (test_fase3.AlmacenTests.test_regenerar_conserva_caso_y_actualiza_datos) ... ok
+test_caso_inexistente_o_invalido (test_fase3.ApiCasosTests.test_caso_inexistente_o_invalido) ... INFO:httpx:HTTP Request: GET http://testserver/casos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: GET http://testserver/casos/nope "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: POST http://testserver/casos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/comprobacion "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: POST http://testserver/casos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/comprobacion "HTTP/1.1 422 Unprocessable Entity"
+ok
+test_flujo_generar_listar_reabrir_comprobar (test_fase3.ApiCasosTests.test_flujo_generar_listar_reabrir_comprobar) ... INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos/6e988f2a3c1d4636b14cffeaa4d47650 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://testserver/casos/6e988f2a3c1d4636b14cffeaa4d47650/comprobacion "HTTP/1.1 200 OK"
+ok
+test_preparar_informa_errores_y_generar_rechaza (test_fase3.ApiCasosTests.test_preparar_informa_errores_y_generar_rechaza) ... INFO:httpx:HTTP Request: POST http://testserver/laboratorio/preparar "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 422 Unprocessable Entity"
+INFO:httpx:HTTP Request: GET http://testserver/casos "HTTP/1.1 200 OK"
+ok
+test_abreviatura_se_normaliza_y_vlan_no_se_repite (test_fase3.GeneradorTests.test_abreviatura_se_normaliza_y_vlan_no_se_repite) ... ok
+test_comandos_por_plantilla (test_fase3.GeneradorTests.test_comandos_por_plantilla) ... ok
+test_ids_mermaid_seguros (test_fase3.GeneradorTests.test_ids_mermaid_seguros) ... ok
+test_topologia_derivada_de_los_datos (test_fase3.GeneradorTests.test_topologia_derivada_de_los_datos) ... ok
+test_generar_guarda_y_reabrir_recupera (test_fase3.StreamlitCasosTests.test_generar_guarda_y_reabrir_recupera) ... 2026-11-09 12:30:48.700 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-11-09 12:30:49.300 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-11-09 12:30:49.734 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-11-09 12:30:49.759 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+ok
+test_reglas_bloquean_generar (test_fase3.StreamlitCasosTests.test_reglas_bloquean_generar) ... 2026-11-09 12:30:49.845 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-11-09 12:30:50.293 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+ok
+test_caso_de_referencia_aprobado (test_fase3.ValidadoresTests.test_caso_de_referencia_aprobado) ... ok
+test_incompleto_no_es_aprobado (test_fase3.ValidadoresTests.test_incompleto_no_es_aprobado) ... ok
+test_modelo_no_2960_solo_advierte (test_fase3.ValidadoresTests.test_modelo_no_2960_solo_advierte) ... ok
+test_nombres_y_hosts (test_fase3.ValidadoresTests.test_nombres_y_hosts) ... ok
+test_puertos_invalidos_y_duplicados (test_fase3.ValidadoresTests.test_puertos_invalidos_y_duplicados) ... ok
+test_vlan_con_dos_nombres (test_fase3.ValidadoresTests.test_vlan_con_dos_nombres) ... ok
+test_vlan_invalidas_se_rechazan (test_fase3.ValidadoresTests.test_vlan_invalidas_se_rechazan) ... ok
+test_continuacion_de_puertos (test_fase4.AnalizadorTests.test_continuacion_de_puertos) ... ok
+test_dividir_bloques_por_prompt_y_por_nombre (test_fase4.AnalizadorTests.test_dividir_bloques_por_prompt_y_por_nombre) ... ok
+test_pasos_base_una_vlan_y_un_puerto_por_conexion (test_fase4.AnalizadorTests.test_pasos_base_una_vlan_y_un_puerto_por_conexion) ... ok
+test_puerto_ausente_en_tabla_es_ambiguo_no_error (test_fase4.AnalizadorTests.test_puerto_ausente_en_tabla_es_ambiguo_no_error) ... ok
+test_puertos_extra_en_vlan_son_aviso (test_fase4.AnalizadorTests.test_puertos_extra_en_vlan_son_aviso) ... ok
+test_switchport_deshabilitado (test_fase4.AnalizadorTests.test_switchport_deshabilitado) ... ok
+test_switchport_incompleto_o_desconocido (test_fase4.AnalizadorTests.test_switchport_incompleto_o_desconocido) ... ok
+test_switchport_ok_y_modos (test_fase4.AnalizadorTests.test_switchport_ok_y_modos) ... ok
+test_switchport_sin_enlace_es_aviso_no_error (test_fase4.AnalizadorTests.test_switchport_sin_enlace_es_aviso_no_error) ... ok
+test_switchport_vlan_distinta (test_fase4.AnalizadorTests.test_switchport_vlan_distinta) ... ok
+test_tabla_vacia_es_ambiguo (test_fase4.AnalizadorTests.test_tabla_vacia_es_ambiguo) ... ok
+test_texto_no_reconocido (test_fase4.AnalizadorTests.test_texto_no_reconocido) ... ok
+test_vlan_brief_coherente (test_fase4.AnalizadorTests.test_vlan_brief_coherente) ... ok
+test_vlan_brief_puerto_en_otra_vlan (test_fase4.AnalizadorTests.test_vlan_brief_puerto_en_otra_vlan) ... ok
+test_vlan_inexistente_y_nombre_distinto (test_fase4.AnalizadorTests.test_vlan_inexistente_y_nombre_distinto) ... ok
+test_errores_http (test_fase4.ApiDiagnosticoTests.test_errores_http) ... INFO:httpx:HTTP Request: POST http://testserver/casos/00000000000000000000000000000000/evidencias "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: GET http://testserver/casos/no-valido/diagnostico "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: POST http://testserver/casos/2dc666fdce4f416cbf74373c46f19464/evidencias "HTTP/1.1 422 Unprocessable Entity"
+INFO:httpx:HTTP Request: POST http://testserver/casos/2dc666fdce4f416cbf74373c46f19464/evidencias "HTTP/1.1 422 Unprocessable Entity"
+ok
+test_flujo_api (test_fase4.ApiDiagnosticoTests.test_flujo_api) ... INFO:httpx:HTTP Request: GET http://testserver/casos/c078418b723644e18fc862ba9a99c26a/diagnostico "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://testserver/casos/c078418b723644e18fc862ba9a99c26a/evidencias "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://testserver/casos/c078418b723644e18fc862ba9a99c26a/evidencias "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos/c078418b723644e18fc862ba9a99c26a/evidencias "HTTP/1.1 200 OK"
+ok
+test_sin_rag_el_diagnostico_sigue_disponible (test_fase4.ApiDiagnosticoTests.test_sin_rag_el_diagnostico_sigue_disponible) ... INFO:httpx:HTTP Request: GET http://testserver/casos/5cb2404b75e54d41a657d8ebc3f3cbf9/diagnostico "HTTP/1.1 200 OK"
+ok
+test_borrar_caso_elimina_evidencias_por_cascada (test_fase4.DiagnosticoAlmacenTests.test_borrar_caso_elimina_evidencias_por_cascada) ... ok
+test_cambiar_datos_declarados_invalida_evidencias (test_fase4.DiagnosticoAlmacenTests.test_cambiar_datos_declarados_invalida_evidencias) ... ok
+test_diagnostico_inicial_sin_evidencia (test_fase4.DiagnosticoAlmacenTests.test_diagnostico_inicial_sin_evidencia) ... ok
+test_en_curso_con_pasos_pendientes (test_fase4.DiagnosticoAlmacenTests.test_en_curso_con_pasos_pendientes) ... ok
+test_flujo_hallazgo_correccion_y_cierre (test_fase4.DiagnosticoAlmacenTests.test_flujo_hallazgo_correccion_y_cierre) ... ok
+test_no_repite_pasos_completados_ni_salidas_iguales (test_fase4.DiagnosticoAlmacenTests.test_no_repite_pasos_completados_ni_salidas_iguales) ... ok
+test_persiste_entre_instancias_y_migra_base_de_fase3 (test_fase4.DiagnosticoAlmacenTests.test_persiste_entre_instancias_y_migra_base_de_fase3) ... ok
+test_rechazos_sin_escritura (test_fase4.DiagnosticoAlmacenTests.test_rechazos_sin_escritura) ... ok
+test_resultado_ambiguo_pide_aclaracion_y_no_cierra (test_fase4.DiagnosticoAlmacenTests.test_resultado_ambiguo_pide_aclaracion_y_no_cierra) ... ok
+test_salida_no_reconocida_no_se_guarda (test_fase4.DiagnosticoAlmacenTests.test_salida_no_reconocida_no_se_guarda) ... ok
+test_diagnostico_en_streamlit (test_fase4.StreamlitDiagnosticoTests.test_diagnostico_en_streamlit) ... 2026-11-09 12:30:52.250 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-11-09 12:30:53.060 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+ok
+test_ajeno_equivale_a_inexistente_en_todas_las_operaciones (test_fase5.AccesoPorUsuarioTests.test_ajeno_equivale_a_inexistente_en_todas_las_operaciones) ... ok
+test_archivar_oculta_y_restaura_sin_perder_datos (test_fase5.AccesoPorUsuarioTests.test_archivar_oculta_y_restaura_sin_perder_datos) ... ok
+test_casos_anteriores_sin_propietario_siguen_accesibles_y_se_adoptan (test_fase5.AccesoPorUsuarioTests.test_casos_anteriores_sin_propietario_siguen_accesibles_y_se_adoptan) ... ok
+test_clave_invalida_se_rechaza_y_no_se_guarda_en_claro (test_fase5.AccesoPorUsuarioTests.test_clave_invalida_se_rechaza_y_no_se_guarda_en_claro) ... ok
+test_filtro_por_estado_y_resumen_de_lista (test_fase5.AccesoPorUsuarioTests.test_filtro_por_estado_y_resumen_de_lista) ... ok
+test_listado_solo_muestra_casos_propios (test_fase5.AccesoPorUsuarioTests.test_listado_solo_muestra_casos_propios) ... ok
+test_clave_invalida_422 (test_fase5.ApiUsuariosTests.test_clave_invalida_422) ... INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos "HTTP/1.1 422 Unprocessable Entity"
+ok
+test_cors_permite_la_cabecera_de_usuario (test_fase5.ApiUsuariosTests.test_cors_permite_la_cabecera_de_usuario) ... INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: OPTIONS http://testserver/casos "HTTP/1.1 200 OK"
+ok
+test_flujo_lista_filtro_archivado_e_informe (test_fase5.ApiUsuariosTests.test_flujo_lista_filtro_archivado_e_informe) ... INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://testserver/casos/bc58df9f90fa4cd086c6042d5272af9f/evidencias "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos?estado=comprobado "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos/bc58df9f90fa4cd086c6042d5272af9f/informe "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://testserver/casos/bc58df9f90fa4cd086c6042d5272af9f/archivado "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos?archivados=true "HTTP/1.1 200 OK"
+ok
+test_otro_usuario_recibe_404_en_todas_las_rutas (test_fase5.ApiUsuariosTests.test_otro_usuario_recibe_404_en_todas_las_rutas) ... INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos/b03f2f07f10a45da8c79ece4e1825969 "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: GET http://testserver/casos/b03f2f07f10a45da8c79ece4e1825969/diagnostico "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: GET http://testserver/casos/b03f2f07f10a45da8c79ece4e1825969/evidencias "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: GET http://testserver/casos/b03f2f07f10a45da8c79ece4e1825969/informe "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: POST http://testserver/casos/b03f2f07f10a45da8c79ece4e1825969/evidencias "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: POST http://testserver/casos/b03f2f07f10a45da8c79ece4e1825969/comprobacion "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: POST http://testserver/casos/b03f2f07f10a45da8c79ece4e1825969/archivado "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: POST http://testserver/laboratorio/generar "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: GET http://testserver/casos/b03f2f07f10a45da8c79ece4e1825969 "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: GET http://testserver/casos "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://testserver/casos/b03f2f07f10a45da8c79ece4e1825969 "HTTP/1.1 200 OK"
+ok
+test_caso_sin_propuesta_ni_evidencia (test_fase5.InformeTests.test_caso_sin_propuesta_ni_evidencia) ... ok
+test_celdas_de_tabla_escapan_barras (test_fase5.InformeTests.test_celdas_de_tabla_escapan_barras) ... ok
+test_evidencias_obsoletas_se_indican_sin_listarlas (test_fase5.InformeTests.test_evidencias_obsoletas_se_indican_sin_listarlas) ... ok
+test_informe_completo_recupera_requisitos_propuesta_fuentes_y_evidencias (test_fase5.InformeTests.test_informe_completo_recupera_requisitos_propuesta_fuentes_y_evidencias) ... ok
+test_salida_con_triple_comilla_no_rompe_el_bloque (test_fase5.InformeTests.test_salida_con_triple_comilla_no_rompe_el_bloque) ... ok
+test_la_clave_de_sesion_separa_casos_y_se_puede_reutilizar (test_fase5.StreamlitUsuariosTests.test_la_clave_de_sesion_separa_casos_y_se_puede_reutilizar) ... 2026-11-09 12:30:56.234 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+ok
+
+----------------------------------------------------------------------
+Ran 102 tests in 12.997s
+
+OK

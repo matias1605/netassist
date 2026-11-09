@@ -313,9 +313,12 @@ mostrar_laboratorio(Cadena(), st.markdown, Rag(), AlmacenCasos("{self.ruta}"))
         self.button(app, "Generar propuesta").click().run()
         self.assertFalse(app.exception)
         caso_id = app.session_state["lab_resultado"]["caso_id"]
-        self.assertEqual(len(AlmacenCasos(self.ruta).listar_casos()), 1)
-        # Sesión nueva: el caso guardado se reabre con datos y propuesta.
+        usuario = app.session_state["lab_usuario"]
+        self.assertEqual(len(AlmacenCasos(self.ruta).listar_casos(usuario)), 1)
+        # Sesión nueva con la misma clave personal: el caso se reabre con datos y propuesta.
         nueva = self.app()
+        nueva.session_state["lab_usuario"] = usuario
+        nueva.run()
         nueva.session_state["lab_caso_sel"] = caso_id
         nueva.text_input(key="lab_alias").set_value("OTRO").run()
         self.button(nueva, "Reabrir caso").click().run()
