@@ -35,7 +35,31 @@ _CSS = """
     --navy: #0f1a2b; --blue: #14958a; --blue-dark: #0f7a71; --teal-soft: #e6f6f4;
     --ink: #1d2b3b; --muted: #6b7a8c; --line: #e3e9f0; --canvas: #f2f5f8;
   }
-  [data-testid="stSidebarCollapsedControl"], [data-testid="stSidebar"] { display: none; }
+  /* Panel izquierdo: navegación como en la web */
+  [data-testid="stSidebar"] { background: var(--navy); border-right: 0; min-width: 236px; }
+  [data-testid="stSidebar"] > div:first-child { background: var(--navy); }
+  [data-testid="stSidebarHeader"] { display: none; }
+  [data-testid="stSidebarCollapseButton"] button, [data-testid="stSidebarCollapsedControl"] button { color: #c9d4e2; }
+  [data-testid="stSidebarContent"] { padding: 0; }
+  [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] { padding: 22px 12px 18px; }
+  .sb { display: flex; flex-direction: column; gap: 6px; min-height: calc(100vh - 40px); color: #c9d4e2; }
+  .sb a { text-decoration: none; }
+  .sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 18px; margin-bottom: 8px; border-bottom: 1px solid #1f2f47; color: inherit; }
+  .sb-mark { display: grid; place-items: center; flex: 0 0 auto; width: 40px; height: 40px; border-radius: 12px; border: 1px solid #1f6b66; background: #12353a; color: #3fd3c3; font-weight: 800; font-size: 19px; }
+  .sb-mark i { font-style: normal; color: #59f0de; }
+  .sb-brand strong, .sb-brand small { display: block; }
+  .sb-brand strong { color: #fff; font-size: 20px; letter-spacing: -.02em; }
+  .sb-brand small { margin-top: 3px; color: #7d8ca2; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
+  .sb-label { margin: 14px 8px 8px; color: #66768d; font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+  .sb-nav a { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; padding: 14px; border: 1px solid transparent; border-radius: 12px; color: #dfe7f1; font-size: 14px; font-weight: 600; }
+  .sb-nav a:hover { background: #15243b; color: #fff; }
+  .sb-nav a.activo { color: #fff; background: #172a40; border-color: #24405a; }
+  .sb-ico { display: inline-grid; place-items: center; width: 20px; color: #8fa0b6; font-size: 15px; }
+  .sb-nav a.activo .sb-ico { color: #3fd3c3; }
+  .sb-dot { width: 7px; height: 7px; margin-left: auto; border-radius: 50%; background: #3fd3c3; }
+  .sb-foot { margin-top: auto; padding: 14px 8px 0; }
+  .sb-foot p { margin: 0 0 4px; color: #7d8ca2; font-size: 11.5px; }
+  .sb-foot span { color: #e8eef6; font-size: 12.5px; font-weight: 600; }
   .stApp, [data-testid="stAppViewContainer"] { background: var(--canvas); color: var(--ink); }
   [data-testid="stHeader"] { background: transparent; }
   .stMain .block-container { max-width: 1160px; padding: 56px clamp(16px, 3vw, 38px) 170px; }
@@ -201,6 +225,20 @@ _CSS = """
 
 def estilos() -> str:
     return _CSS
+
+
+def panel_izquierdo(contacto: str) -> str:
+    """Navegación lateral, igual que la de la web."""
+    return (
+        '<div class="sb">'
+        '<a class="sb-brand" href="#laboratorio-de-redes-y-conectividad-i"><span class="sb-mark">N<i>.</i></span>'
+        "<span><strong>NetAssist</strong><small>Laboratorio de redes</small></span></a>"
+        '<nav class="sb-nav"><p class="sb-label">Espacio de trabajo</p>'
+        '<a href="#laboratorio-de-redes-y-conectividad-i"><span class="sb-ico">◈</span>Presentación</a>'
+        '<a class="activo" href="#tu-proxima-red-empieza-aqui"><span class="sb-ico">▦</span>Laboratorio<span class="sb-dot"></span></a>'
+        '<a href="#practicas"><span class="sb-ico">▤</span>Mis prácticas</a></nav>'
+        f'<div class="sb-foot"><p>¿Necesitas ayuda?</p><span>{contacto}</span></div></div>'
+    )
 
 
 def cabecera_chat() -> str:

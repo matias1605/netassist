@@ -13,7 +13,7 @@ import re
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="NetAssist", page_icon="🛠️", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="NetAssist", page_icon="🛠️", layout="wide", initial_sidebar_state="expanded")
 
 
 def _cargar_secrets() -> None:
@@ -37,7 +37,7 @@ from laboratorio_ui import mostrar_laboratorio
 from backend.config import SUPPORT_CONTACT  # noqa: E402
 from backend.rag import RagService  # noqa: E402
 from backend.seguridad import MENSAJE_DATOS_SENSIBLES, validar_imagen  # noqa: E402
-from estilos_streamlit import NEXO_URI, cabecera_chat, estilos  # noqa: E402
+from estilos_streamlit import NEXO_URI, cabecera_chat, estilos, panel_izquierdo  # noqa: E402
 
 BIENVENIDA = (
     "¡Hola! Soy NetAssist. Cuéntame qué problema tienes y, si puedes, incluye el modelo "
@@ -148,6 +148,9 @@ try:
 except Exception:
     st.error(f"No se pudo cargar la base de conocimiento. {SUPPORT_CONTACT}")
     st.stop()
+
+with st.sidebar:
+    st.html(panel_izquierdo(SUPPORT_CONTACT))
 
 # --- Página de fondo: portal del laboratorio ---------------------------------------------
 st.title("Laboratorio de Redes y Conectividad I")
