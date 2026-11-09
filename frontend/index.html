@@ -26,6 +26,11 @@
         <p>Prepara los datos de un switch y revisa una propuesta antes de probarla en el simulador.</p></div>
         <a href="#chat" class="lab-link">Chat y acciones rápidas ↓</a>
       </header>
+      <section class="lab-sheet lab-cases" aria-labelledby="lab-cases-title">
+        <h2 id="lab-cases-title">Casos guardados</h2>
+        <p id="lab-cases-empty" class="lab-help">Aún no hay casos. Al generar una propuesta se guarda el caso para reabrirlo.</p>
+        <div class="lab-buttons"><label class="lab-case-select">Caso<select id="lab-cases"></select></label><button id="lab-reopen" class="button button-quiet" type="button">Reabrir caso</button></div>
+      </section>
       <div class="laboratorio-grid">
         <form id="laboratorio-form" class="lab-sheet">
           <h2>1. Datos de la práctica</h2>
@@ -50,7 +55,8 @@
             <p id="lab-review-empty" class="lab-help">Completa el formulario y pulsa Revisar datos. Este paso no consulta a la IA.</p>
             <div id="lab-review" class="hidden">
               <p id="lab-missing" role="status"></p>
-              <p class="lab-help">Se revisan campos presentes. Validación técnica de VLAN y puertos: pendiente.</p>
+              <p class="lab-help">Se aplican reglas de VLAN, puertos y nombres. Aprobarlas no equivale a probar en el simulador.</p>
+              <details><summary>Propuesta determinista (sin IA)</summary><div id="lab-preview" class="bubble"></div></details>
               <details><summary>Datos y solicitud que se enviarán</summary><pre id="lab-draft" class="lab-draft"></pre></details>
               <label class="lab-confirm"><input id="lab-confirm" type="checkbox"> Revisé estos datos ficticios y quiero generar una propuesta.</label>
               <div class="lab-buttons"><button id="lab-generate" class="button button-contact" type="button" disabled>Generar propuesta</button><button id="lab-discard" class="button button-quiet" type="button">Descartar revisión</button></div>
@@ -133,6 +139,6 @@
   </dialog>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js" defer></script>
   <script src="app.js?v=8" defer></script>
-  <script src="laboratorio.js?v=1" defer></script>
+  <script src="laboratorio.js?v=2" defer></script>
 </body>
 </html>

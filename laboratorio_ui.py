@@ -6,12 +6,44 @@ import logging
 import streamlit as st
 from pydantic import ValidationError
 
+from backend.generador import formatear_propuesta
 from backend.laboratorio import TareaLaboratorio, ejemplo_laboratorio, preparar_tarea, generar_tarea
 
 logger = logging.getLogger(__name__)
 
 
+def _firma(datos):
+    return json.dumps(datos, sort_keys=True, ensure_ascii=False)
+
+
+def _cargar_datos(datos):
+    for clave in ("tipo", "nombre", "objetivo"):
+        st.session_state[f"lab_{clave}"] = datos[clave]
+    for clave in ("alias", "modelo", "ios"):
+        st.session_state[f"lab_{clave}"] = datos["equipo"][clave]
+    st.session_state.lab_filas = datos["vlans"]
+    st.session_state.lab_editor_version = st.session_state.get("lab_editor_version", 0) + 1
+    _descartar()
+
+
+def _reabrir(almacen):
+    """Carga un caso guardado y su última propuesta; el resultado queda hasta que se edite un dato."""
+    try:
+        caso = almacen.obtener_caso(st.session_state.lab_caso_sel)
+    except LookupError:
+        st.session_state.lab_aviso = "Caso no encontrado."
+        return
+    _cargar_datos(caso["tarea"])
+    st.session_state.lab_caso_id = caso["caso_id"]
+    st.session_state.lab_firma = _firma(caso["tarea"])
+    st.session_state.lab_aviso = ""
+    if caso["propuesta"]:
+        st.session_state.lab_resultado = {"estado": "reabierto", "texto": caso["propuesta"]["texto"], "caso_id": caso["caso_id"],
+                                          "comprobacion_laboratorio": caso["propuesta"]["comprobacion_laboratorio"]}
+
+
 def _cargar_ejemplo():
+    st.session_state.lab_caso_id = None
     datos = ejemplo_laboratorio()
     for clave in ("tipo", "nombre", "objetivo"):
         st.session_state[f"lab_{clave}"] = datos[clave]
@@ -28,7 +60,7 @@ def _descartar():
     st.session_state.lab_confirmado = False
 
 
-def mostrar_laboratorio(cadena, mostrar_respuesta):
+def mostrar_laboratorio(cadena, mostrar_respuesta, rag=None, almacen=None):
     if "lab_filas" not in st.session_state:
         _cargar_ejemplo()
     st.subheader("Espacio de laboratorio")
@@ -37,6 +69,14 @@ def mostrar_laboratorio(cadena, mostrar_respuesta):
     with datos_col:
         st.markdown("### 1. Datos de la práctica")
         st.button("Cargar ejemplo de laboratorio", on_click=_cargar_ejemplo)
+        if almacen is not None:
+            casos = almacen.listar_casos()
+            if casos:
+                st.selectbox("Casos guardados", [c["id"] for c in casos], key="lab_caso_sel",
+                             format_func=lambda i: next(f"{c['nombre'] or 'Sin nombre'} · {c['estado']} · {c['actualizado'][:16]}" for c in casos if c["id"] == i))
+                st.button("Reabrir caso", on_click=_reabrir, args=(almacen,))
+            if st.session_state.get("lab_aviso"):
+                st.warning(st.session_state.lab_aviso)
         st.selectbox("Tipo de tarea", ["configuracion", "topologia"], format_func=lambda x: "Generar configuración" if x == "configuracion" else "Generar topología", key="lab_tipo")
         st.text_input("Nombre de la práctica", max_chars=120, key="lab_nombre")
         st.text_input("Alias del switch", max_chars=64, key="lab_alias")
@@ -53,7 +93,7 @@ def mostrar_laboratorio(cadena, mostrar_respuesta):
         datos = {"tipo": st.session_state.lab_tipo, "nombre": st.session_state.lab_nombre,
                  "equipo": {clave: st.session_state[f"lab_{clave}"] for clave in ("alias", "modelo", "ios")},
                  "vlans": [{k: str(v or "") for k, v in fila.items()} for fila in filas], "objetivo": st.session_state.lab_objetivo}
-        firma = json.dumps(datos, sort_keys=True, ensure_ascii=False)
+        firma = _firma(datos)
         if firma != st.session_state.get("lab_firma"):
             _descartar()
             st.session_state.lab_firma = firma
@@ -68,19 +108,29 @@ def mostrar_laboratorio(cadena, mostrar_respuesta):
         st.markdown("### 2. Revisión")
         revision = st.session_state.get("lab_revision")
         if revision:
+            if revision["errores"]:
+                st.error("Corrige estos datos: " + " ".join(revision["errores"]))
             if revision["faltantes"]:
                 st.warning("Completa estos datos: " + "; ".join(revision["faltantes"]))
-            else:
-                st.info("Campos completos. Revisa la solicitud antes de generar.")
-            st.caption("Validación técnica de VLAN y puertos: pendiente. Revisar campos no consulta a la IA.")
+            elif not revision["errores"]:
+                st.info("Campos completos y reglas aprobadas. Revisa la solicitud antes de generar.")
+            for aviso in revision["advertencias"]:
+                st.caption("⚠ " + aviso)
+            etiquetas = {"reglas_aprobadas": "reglas aprobadas", "rechazada": "rechazada", "incompleta": "incompleta"}
+            st.caption(f"Validación por reglas: {etiquetas[revision['validacion_tecnica']]}. No equivale a una prueba en el simulador. Revisar no consulta a la IA.")
+            if revision["propuesta"]:
+                with st.expander("Propuesta determinista (sin IA)"):
+                    mostrar_respuesta(formatear_propuesta(revision["propuesta"]))
             with st.expander("Datos y solicitud que se enviarán"):
                 st.code(revision["prompt"], language=None)
             confirmado = st.checkbox("Revisé estos datos ficticios y quiero generar una propuesta.", key="lab_confirmado")
-            if st.button("Generar propuesta", disabled=not confirmado or bool(revision["faltantes"]), type="primary"):
+            if st.button("Generar propuesta", disabled=not confirmado or bool(revision["faltantes"]) or bool(revision["errores"]), type="primary"):
                 st.session_state.lab_resultado = None
                 try:
                     with st.spinner("Generando propuesta…"):
-                        st.session_state.lab_resultado = asyncio.run(generar_tarea(TareaLaboratorio(**revision["datos"]), confirmado, cadena))
+                        st.session_state.lab_resultado = asyncio.run(generar_tarea(TareaLaboratorio(**revision["datos"]), confirmado, cadena, rag, almacen, st.session_state.get("lab_caso_id")))
+                    if st.session_state.lab_resultado["caso_id"]:
+                        st.session_state.lab_caso_id = st.session_state.lab_resultado["caso_id"]
                 except ValueError as error:
                     st.error(str(error))
                 except Exception as error:
@@ -93,10 +143,15 @@ def mostrar_laboratorio(cadena, mostrar_respuesta):
         resultado = st.session_state.get("lab_resultado")
         if resultado:
             if resultado["estado"] == "respuesta_generada":
-                st.warning("Respuesta generada · Propuesta pendiente de verificación")
+                st.warning("Propuesta con explicación de IA · Validada por reglas, pendiente de comprobar en laboratorio")
+            elif resultado["estado"] == "reabierto":
+                comprobacion = resultado["comprobacion_laboratorio"]
+                st.warning("Caso reabierto · " + ("Comprobación en laboratorio: " + comprobacion if comprobacion != "no_realizada" else "pendiente de comprobar en laboratorio"))
             else:
-                st.warning("Sin propuesta · Revisa el aviso")
-            mostrar_respuesta(resultado["respuesta"])
+                st.warning("Propuesta sin explicación de IA · Revisa el aviso")
+            if resultado.get("caso_id"):
+                st.caption(f"Caso guardado: {resultado['caso_id'][:8]}")
+            mostrar_respuesta(resultado["texto"])
         else:
             st.caption("Sin propuesta para estos datos.")
         st.caption("Comprobación en laboratorio: no realizada. Generar una respuesta no ejecuta comandos ni certifica conectividad.")

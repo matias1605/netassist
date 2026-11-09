@@ -56,3 +56,6 @@ if not 0 <= RAG_DISTANCE_THRESHOLD <= 2:
     raise ValueError("RAG_DISTANCE_THRESHOLD debe estar entre 0 y 2.")
 if not FRONTEND_ORIGIN:
     raise ValueError("FRONTEND_ORIGIN no puede estar vacío.")
+
+# Base de datos de la aplicación (casos); independiente del índice de conocimiento.
+CASOS_DB_PATH = Path(os.getenv("NETASSIST_DB", "") or ROOT_DIR / "backend" / "data" / "netassist.db")

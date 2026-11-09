@@ -29,6 +29,8 @@ def _cargar_secrets() -> None:
 
 _cargar_secrets()
 
+from backend.casos import AlmacenCasos  # noqa: E402
+from backend.config import CASOS_DB_PATH  # noqa: E402
 from backend.cadena import crear_cadena  # noqa: E402  (después de cargar los secrets)
 from backend.acciones import obtener_acciones  # noqa: E402
 from laboratorio_ui import mostrar_laboratorio
@@ -52,7 +54,12 @@ def cargar_asistente():
     """Indexa las fichas una sola vez por servidor y arma la cadena de LangChain."""
     rag = RagService()
     resumen = rag.initialize()
-    return crear_cadena(rag), resumen
+    return crear_cadena(rag), resumen, rag
+
+
+@st.cache_resource
+def cargar_almacen():
+    return AlmacenCasos(CASOS_DB_PATH)
 
 
 def _altura_diagrama(fuente: str) -> int:
@@ -196,7 +203,7 @@ st.html(
 )
 
 try:
-    cadena, resumen = cargar_asistente()
+    cadena, resumen, rag = cargar_asistente()
 except Exception:
     st.error(f"No se pudo cargar la base de conocimiento. {SUPPORT_CONTACT}")
     st.stop()
@@ -210,7 +217,7 @@ st.markdown(
     "de soporte del laboratorio."
 )
 
-mostrar_laboratorio(cadena, mostrar_respuesta)
+mostrar_laboratorio(cadena, mostrar_respuesta, rag, cargar_almacen())
 
 st.divider()
 st.subheader("Prácticas")

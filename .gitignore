@@ -11,3 +11,7 @@
 .runtime/
 *.log
 .streamlit/secrets.toml
+backend/data/
+*.db
+*.db-wal
+*.db-shm

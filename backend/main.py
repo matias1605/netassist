@@ -11,7 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, model_validator
 from starlette.concurrency import run_in_threadpool
 
-from .config import FRONTEND_ORIGIN, SUPPORT_CONTACT
+from .casos import AlmacenCasos, CasoNoEncontrado
+from .config import CASOS_DB_PATH, FRONTEND_ORIGIN, SUPPORT_CONTACT
 from .acciones import obtener_acciones
 from .cadena import crear_cadena
 from .laboratorio import TareaLaboratorio, ejemplo_laboratorio, preparar_tarea, generar_tarea
@@ -23,6 +24,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 rag_service = RagService()
 cadena = crear_cadena(rag_service)
+almacen = AlmacenCasos(CASOS_DB_PATH)
 
 
 @asynccontextmanager
@@ -162,6 +164,12 @@ async def chat(solicitud: SolicitudChat, request: Request) -> RespuestaChat:
 class GeneracionLaboratorio(BaseModel):
     tarea: TareaLaboratorio
     confirmado: bool = False
+    caso_id: str | None = Field(default=None, max_length=32)
+
+
+class ComprobacionLaboratorio(BaseModel):
+    resultado: Literal["correcta", "fallida"]
+    salida: str = Field(min_length=1, max_length=8000)
 
 
 @app.get("/laboratorio/ejemplo")
@@ -182,11 +190,15 @@ async def laboratorio_generar(solicitud: GeneracionLaboratorio, request: Request
     try:
         # Primero revisar incluso si el índice está caído, para informar datos faltantes.
         revision = preparar_tarea(solicitud.tarea)
+        if revision["errores"]:
+            raise ValueError("Corrige estos datos: " + " ".join(revision["errores"]))
         if not solicitud.confirmado or revision["faltantes"]:
             raise ValueError("Revisa los datos, completa los campos faltantes y confirma antes de generar.")
         if request.app.state.rag_error is not None:
             raise HTTPException(status_code=503, detail="La base de conocimiento no está disponible. Intenta más tarde.")
-        return await generar_tarea(solicitud.tarea, solicitud.confirmado, cadena)
+        return await generar_tarea(solicitud.tarea, solicitud.confirmado, cadena, rag_service, almacen, solicitud.caso_id)
+    except CasoNoEncontrado as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     except HTTPException:
@@ -194,3 +206,28 @@ async def laboratorio_generar(solicitud: GeneracionLaboratorio, request: Request
     except Exception as error:
         logger.error("Falló la tarea de laboratorio. tipo=%s", type(error).__name__)
         raise HTTPException(status_code=503, detail="No se pudo generar la propuesta. Intenta nuevamente.") from error
+
+
+@app.get("/casos")
+async def casos_listar() -> list[dict]:
+    return await run_in_threadpool(almacen.listar_casos)
+
+
+@app.get("/casos/{caso_id}")
+async def casos_obtener(caso_id: str) -> dict:
+    try:
+        return await run_in_threadpool(almacen.obtener_caso, caso_id)
+    except CasoNoEncontrado as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@app.post("/casos/{caso_id}/comprobacion")
+async def casos_comprobacion(caso_id: str, datos: ComprobacionLaboratorio) -> dict:
+    """Registra el resultado de una prueba manual en simulador o laboratorio."""
+    try:
+        await run_in_threadpool(almacen.registrar_comprobacion, caso_id, datos.resultado, datos.salida)
+        return await run_in_threadpool(almacen.obtener_caso, caso_id)
+    except CasoNoEncontrado as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error

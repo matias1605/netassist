@@ -31,7 +31,7 @@ Este avance prepara la interacción. No equivale a un generador validado, un dia
 |---|---|---|---|
 | 1. Fortalecer la base | Completada (pruebas locales, 09/11/2026) | Política de datos coherente, revisión de historial completo, límites globales, recuperación contextual, reindexación segura y pruebas del respaldo | Un fallo de reconstrucción conserva el índice previo; fallos inducidos permiten usar el respaldo; información bloqueada no llega al proveedor desde turnos anteriores. |
 | 2. Espacio de laboratorio | Completada (pruebas locales, 09/11/2026) | Acciones rápidas conservadas; formulario de equipo, VLAN/conexiones y requisitos; revisión explícita y panel de resultados en ambas interfaces | Se inicia una tarea desde un formulario, se revisan los datos y se diferencia claramente propuesta de resultado comprobado. |
-| 3. Generador VLAN | Por hacer | Solicitud estructurada, validadores, comandos por equipo, verificaciones y persistencia mínima del caso | Faltan datos → se solicitan; VLAN/puertos inválidos → se rechazan; un caso de referencia se comprueba en simulador y puede reabrirse. |
+| 3. Generador VLAN | Implementada (pruebas locales, 09/11/2026); comprobación en simulador pendiente | Solicitud estructurada, validadores, comandos por equipo, verificaciones y persistencia mínima del caso | Faltan datos → se solicitan; VLAN/puertos inválidos → se rechazan; un caso de referencia se comprueba en simulador y puede reabrirse. |
 | 4. Diagnóstico con evidencia | Por hacer | Analizador de salidas del escenario, pasos y resultados persistentes, fuentes | Cada observación referencia evidencia; no se repiten pasos completados y los resultados ambiguos piden aclaración. |
 | 5. Casos e informes | Por hacer | Lista de casos, estados, resumen exportable, acceso por usuario cuando corresponda | Se recuperan requisitos, propuestas, fuentes y evidencias; un usuario no accede a casos ajenos. |
 | 6. Demostración y evaluación | Por hacer | Escenarios reproducibles, fallos de proveedor, casos incompletos y métricas | Se presenta evidencia de funcionamiento, limitaciones y comparación contra el chat inicial. |
@@ -105,3 +105,21 @@ Estado: **completada para el espacio de laboratorio local**. Se puede iniciar un
 Evidencias: `pruebas/verificacion_fase2.md`, `pruebas/resultado_fase2.txt`, `pruebas/resultado_web_fase2.txt` y `pruebas/evidencias/fase2-web-*.png`. Compilación de Python, sintaxis de ambos scripts JavaScript y `git diff --check`: correctos.
 
 Límites: revisión de campos presentes y tamaños, no validador técnico de rangos VLAN, sintaxis de puertos, asignaciones duplicadas ni soporte del modelo. Los valores del formulario son datos declarados, no observados en dispositivos. No hay casos persistentes; el resultado del formulario se conserva solo mientras la página/sesión permanece abierta. No se probaron proveedores reales ni simulador. El smoke del navegador simula la API y bloquea el CDN; no valida Mermaid ni conecta todo el flujo con un proveedor real. Streamlit se verifica con AppTest, sin captura de navegador. La fase 3 permanece por hacer.
+
+## Resultado de la fase 3 — 9 de noviembre de 2026
+
+Estado: **implementada y verificada con pruebas automatizadas y smoke de navegador; falta la comprobación manual del caso de referencia en simulador**, que es parte del criterio de cierre. No se ha certificado funcionamiento en equipos.
+
+| Entregable | Implementación y resultado |
+|---|---|
+| Validadores | `backend/validadores.py`: VLAN 2–4094 (1 y 1002–1005 rechazadas), nombre de VLAN, sintaxis de puerto (Fa/Gi y formas largas, normalizadas), puerto no asignado dos veces, VLAN con dos nombres, host repetido, alias válido. Modelo distinto de 2960: advertencia, no error. Los vacíos los sigue informando `faltantes`. |
+| Estados de validación | `reglas_aprobadas`, `incompleta` o `rechazada`; sustituyen a «pendiente». Con errores no hay propuesta ni llamada a la IA (422 en API). La comprobación en laboratorio sigue `no_realizada` hasta registrarla. |
+| Generador | `backend/generador.py`: comandos IOS y diagrama Mermaid por plantilla determinista, no del modelo. Contrato: equipos, datos faltantes, comandos por equipo, verificaciones, advertencias, fuentes (de la búsqueda RAG) y estado de validación; topología con nodos, enlaces, confirmados y supuestos. La IA solo añade una explicación breve; si los proveedores caen, la propuesta determinista se conserva (`propuesta_sin_explicacion`). |
+| Persistencia | `backend/casos.py`: SQLite independiente de Chroma (`backend/data/netassist.db`, o `NETASSIST_DB`), migraciones con `PRAGMA user_version`, tablas casos, equipos, conexiones, requisitos y propuestas, WAL y claves foráneas. Generar guarda el caso; regenerar con el mismo `caso_id` actualiza datos y añade propuesta. Se aplica el filtro de datos sensibles. |
+| API | `GET /casos`, `GET /casos/{id}`, `POST /casos/{id}/comprobacion` (resultado correcta/fallida y salidas pegadas) y `caso_id` opcional en `/laboratorio/generar`. |
+| Interfaces | Web y Streamlit: errores de reglas, propuesta previa sin IA, bloqueo de generación con errores, caso guardado, lista de casos y reabrir con su propuesta. Formato común en `formatear_propuesta`. |
+
+Pruebas: 57 automatizadas satisfactorias (31 previas, con dos ajustes por los nuevos estados, y 26 nuevas), incluidas dos de Streamlit. Las pruebas de fase 2 ahora aíslan la base de casos. Smoke en Chrome con API real: VLAN 4095 rechazada y generación bloqueada; ejemplo revisado, generado (sin proveedor disponible, propuesta determinista) y guardado; caso reabierto con datos, propuesta y diagrama.
+
+Límites: sin usuarios ni acceso por usuario (fase 5); una instancia local, sin coordinación en red; el registro de la comprobación manual existe en la API pero sin pantalla; el generador cubre solo VLAN y puertos de acceso en un switch; el filtro de datos sensibles es heurístico. **Pendiente para cerrar la fase:** aplicar los comandos del ejemplo en Packet Tracer, registrar las salidas con `POST /casos/{id}/comprobacion` y confirmar que el caso puede reabrirse.
+

@@ -1,7 +1,9 @@
 """Pruebas de servicios y Streamlit de la fase 2, sin proveedores ni modelos reales."""
 import asyncio
 import copy
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
@@ -9,6 +11,7 @@ from pydantic import ValidationError
 from streamlit.testing.v1 import AppTest
 
 from backend import main
+from backend.casos import AlmacenCasos
 from backend.laboratorio import TareaLaboratorio, ejemplo_laboratorio, preparar_tarea, generar_tarea
 from backend.llm import MENSAJE_FALLBACK
 
@@ -22,7 +25,7 @@ class LaboratorioTests(unittest.IsolatedAsyncioTestCase):
     def test_ejemplo_y_revision_sin_generacion(self):
         revision = preparar_tarea(self.tarea)
         self.assertFalse(revision["faltantes"])
-        self.assertEqual(revision["validacion_tecnica"], "pendiente")
+        self.assertEqual(revision["validacion_tecnica"], "reglas_aprobadas")
         self.assertEqual(revision["comprobacion_laboratorio"], "no_realizada")
         self.assertIn("concisa y precisa", revision["prompt"])
         self.assertIn("GigabitEthernet0/2", revision["prompt"])
@@ -32,7 +35,7 @@ class LaboratorioTests(unittest.IsolatedAsyncioTestCase):
         resultado = await generar_tarea(self.tarea, True, self.cadena)
         self.assertEqual(resultado["estado"], "respuesta_generada")
         self.assertEqual(resultado["comprobacion_laboratorio"], "no_realizada")
-        self.assertEqual(resultado["validacion_tecnica"], "pendiente")
+        self.assertEqual(resultado["validacion_tecnica"], "reglas_aprobadas")
         entrada = self.cadena.ainvoke.call_args.args[0]
         self.assertEqual(len(entrada["mensajes"]), 1)
         self.assertEqual(entrada["mensajes"][0]["content"], preparar_tarea(self.tarea)["prompt"])
@@ -70,7 +73,7 @@ class LaboratorioTests(unittest.IsolatedAsyncioTestCase):
     async def test_respaldo_total_no_es_propuesta(self):
         self.cadena.ainvoke.return_value = MENSAJE_FALLBACK
         resultado = await generar_tarea(self.tarea, True, self.cadena)
-        self.assertEqual(resultado["estado"], "sin_propuesta")
+        self.assertEqual(resultado["estado"], "propuesta_sin_explicacion")
         self.assertEqual(resultado["comprobacion_laboratorio"], "no_realizada")
 
 
@@ -79,6 +82,12 @@ class ApiLaboratorioTests(unittest.TestCase):
         self.client = TestClient(main.app)
         main.app.state.rag_error = None
         self.datos = ejemplo_laboratorio()
+        # Aísla la base de casos: las pruebas nunca escriben en la base real.
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        patcher = patch.object(main, "almacen", AlmacenCasos(Path(tmp.name) / "casos.db"))
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def test_ejemplo_y_preparar_no_llaman_ia(self):
         with patch.object(main, "cadena", MagicMock(ainvoke=AsyncMock())) as cadena:

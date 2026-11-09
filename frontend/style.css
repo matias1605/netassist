@@ -162,3 +162,5 @@ button { cursor: pointer; }
   .lab-port button { grid-column: 2; }
 }
 @media (prefers-reduced-motion: reduce) { .typing span { animation: none; } .messages { scroll-behavior: auto; } }
+.lab-case-select { display: grid; gap: 4px; flex: 1 1 260px; font-size: 0.9rem; }
+.lab-case-select select { width: 100%; padding: 8px; }

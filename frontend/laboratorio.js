@@ -7,6 +7,8 @@ const labConfirm = document.getElementById("lab-confirm");
 const labGenerate = document.getElementById("lab-generate");
 let labRevision = null;
 let labBusy = false;
+let labCaseId = null;
+const labCases = document.getElementById("lab-cases");
 
 function labInvalidate() {
   labRevision = null;
@@ -24,7 +26,8 @@ function labSetBusy(busy) {
   for (const element of labForm.elements) element.disabled = busy;
   labConfirm.disabled = busy;
   document.getElementById("lab-discard").disabled = busy;
-  labGenerate.disabled = busy || !labRevision || labRevision.faltantes.length > 0 || !labConfirm.checked;
+  labGenerate.disabled = busy || !labRevision || labRevision.faltantes.length > 0 || labRevision.errores.length > 0 || !labConfirm.checked;
+  labCases.disabled = busy; document.getElementById("lab-reopen").disabled = busy || !labCases.options.length;
   document.getElementById("lab-add").disabled = busy || labPorts.children.length >= 16;
 }
 
@@ -81,6 +84,7 @@ async function labLoadExample() {
     labPorts.replaceChildren();
     data.vlans.forEach(labAddPort);
     labInvalidate();
+    labCaseId = null;
     labStatus.textContent = "Ejemplo ficticio cargado. Puedes editarlo antes de revisar.";
   } catch (error) {
     if (!labPorts.children.length) labAddPort();
@@ -103,7 +107,13 @@ labForm.addEventListener("submit", async event => {
   try {
     labRevision = await labRequest("preparar", datos);
     document.getElementById("lab-draft").textContent = labRevision.prompt;
-    document.getElementById("lab-missing").textContent = labRevision.faltantes.length ? `Completa estos datos: ${labRevision.faltantes.join("; ")}.` : "Campos completos. Revisa la solicitud antes de generar.";
+    const problemas = [];
+    if (labRevision.errores.length) problemas.push(`Corrige estos datos: ${labRevision.errores.join(" ")}`);
+    if (labRevision.faltantes.length) problemas.push(`Completa estos datos: ${labRevision.faltantes.join("; ")}.`);
+    document.getElementById("lab-missing").textContent = problemas.length ? problemas.join(" ") : "Campos completos y reglas aprobadas. Revisa la solicitud antes de generar.";
+    const preview = document.getElementById("lab-preview");
+    preview.replaceChildren();
+    if (labRevision.propuesta) { preview.innerHTML = renderMarkdown(labRevision.texto_previo); renderTopologias(preview); }
     document.getElementById("lab-review").classList.remove("hidden");
     document.getElementById("lab-review-empty").classList.add("hidden");
     labStatus.textContent = "Revisión preparada. No se consultó a la IA.";
@@ -111,20 +121,22 @@ labForm.addEventListener("submit", async event => {
   finally { labSetBusy(false); }
 });
 labGenerate.addEventListener("click", async () => {
-  if (labBusy || !labRevision || !labConfirm.checked || labRevision.faltantes.length) return;
+  if (labBusy || !labRevision || !labConfirm.checked || labRevision.faltantes.length || labRevision.errores.length) return;
   labSetBusy(true);
   document.getElementById("lab-result").replaceChildren();
   document.getElementById("lab-result").classList.add("hidden");
   labStatus.textContent = "Generando propuesta…";
   document.getElementById("lab-result-state").textContent = "Generando respuesta…";
   try {
-    const data = await labRequest("generar", { tarea: labRevision.datos, confirmado: true });
+    const data = await labRequest("generar", { tarea: labRevision.datos, confirmado: true, caso_id: labCaseId });
     const result = document.getElementById("lab-result");
-    result.innerHTML = renderMarkdown(data.respuesta);
+    result.innerHTML = renderMarkdown(data.texto);
+    labCaseId = data.caso_id;
     renderTopologias(result);
     result.classList.remove("hidden");
-    document.getElementById("lab-result-state").textContent = data.estado === "respuesta_generada" ? "Respuesta generada · Propuesta pendiente de verificación" : "Sin propuesta · Revisa el aviso";
-    labStatus.textContent = "Respuesta recibida. No se ejecutaron comandos.";
+    document.getElementById("lab-result-state").textContent = data.estado === "respuesta_generada" ? "Propuesta con explicación de IA · Validada por reglas, pendiente de comprobar en laboratorio" : "Propuesta sin explicación de IA · Revisa el aviso";
+    labStatus.textContent = `Caso guardado (${String(data.caso_id).slice(0, 8)}). No se ejecutaron comandos.`;
+    labLoadCases();
   } catch (error) {
     document.getElementById("lab-result-state").textContent = "No se pudo generar una propuesta";
     labStatus.textContent = error.message;
@@ -137,4 +149,49 @@ document.getElementById("lab-result").addEventListener("click", async event => {
   try { await navigator.clipboard.writeText(button.parentElement.querySelector("code").textContent); button.textContent = "Copiado"; }
   catch { button.textContent = "No disponible"; }
 });
+
+async function labLoadCases() {
+  try {
+    const casos = await labRequestRoot("casos");
+    const selected = labCases.value;
+    labCases.replaceChildren(...casos.map(caso => new Option(`${caso.nombre || "Sin nombre"} · ${caso.estado} · ${caso.actualizado.slice(0, 16).replace("T", " ")}`, caso.id)));
+    if (selected && casos.some(caso => caso.id === selected)) labCases.value = selected;
+    document.getElementById("lab-cases-empty").classList.toggle("hidden", casos.length > 0);
+    labCases.closest(".lab-buttons").classList.toggle("hidden", casos.length === 0);
+    labSetBusy(labBusy);
+  } catch { /* La lista es opcional: el formulario sigue disponible. */ }
+}
+
+async function labRequestRoot(path) {
+  const response = await fetch(`${API_BASE}/${path}`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "No se pudo leer el caso.");
+  return data;
+}
+
+document.getElementById("lab-reopen").addEventListener("click", async () => {
+  if (labBusy || !labCases.value) return;
+  labSetBusy(true);
+  try {
+    const caso = await labRequestRoot(`casos/${encodeURIComponent(labCases.value)}`);
+    const data = caso.tarea;
+    for (const key of ["tipo", "nombre", "objetivo"]) labForm.elements.namedItem(key).value = data[key];
+    for (const key of ["alias", "modelo", "ios"]) labForm.elements.namedItem(key).value = data.equipo[key];
+    labPorts.replaceChildren();
+    data.vlans.forEach(labAddPort);
+    labInvalidate();
+    labCaseId = caso.caso_id;
+    if (caso.propuesta) {
+      const result = document.getElementById("lab-result");
+      result.innerHTML = renderMarkdown(caso.propuesta.texto);
+      renderTopologias(result);
+      result.classList.remove("hidden");
+      const comprobacion = caso.propuesta.comprobacion_laboratorio;
+      document.getElementById("lab-result-state").textContent = `Caso reabierto · ${comprobacion === "no_realizada" ? "pendiente de comprobar en laboratorio" : `comprobación en laboratorio: ${comprobacion}`}`;
+    }
+    labStatus.textContent = "Caso reabierto. Si editas un dato y generas de nuevo, se actualiza el mismo caso.";
+  } catch (error) { labStatus.textContent = error.message; }
+  finally { labSetBusy(false); }
+});
+labLoadCases();
 labLoadExample();
