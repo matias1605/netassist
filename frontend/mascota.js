@@ -8,8 +8,7 @@
   const bot = document.getElementById("nexo-bot");
   const globo = document.getElementById("nexo-speech");
   const practica = document.getElementById("chat-practica");
-  const lanzador = document.getElementById("nexo-launcher");
-  const mensajes = document.getElementById("messages");
+  const lanzador = document.getElementById("nexo-launcher");  const mensajes = document.getElementById("messages");
   const escribiendo = document.getElementById("typing-indicator");
   const entrada = document.getElementById("message-input");
   const reducido = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -36,8 +35,7 @@
     window.setTimeout(() => {
       globo.textContent = texto;
       globo.classList.remove("cambia");
-    }, reducido ? 0 : 160);
-    if (animo) setAnimo(animo, duracionMs);
+    }, reducido ? 0 : 160);    if (animo) setAnimo(animo, duracionMs);
     despertar();
   }
 
@@ -173,7 +171,6 @@
   });
 
   // ---------- Abrir, minimizar y ampliar ----------
-  const estrecho = window.matchMedia("(max-width: 1180px)");
   function abrirChat() {
     shell.classList.remove("chat-cerrado");
     decir("¡Aquí estoy! ¿En qué te ayudo?", "saluda", 1600);
@@ -192,30 +189,11 @@
     boton.setAttribute("aria-label", ampliado ? "Reducir chat" : "Ampliar chat");
     boton.title = ampliado ? "Reducir" : "Ampliar";
   });
-  document.getElementById("nav-chat").addEventListener("click", (evento) => {
-    evento.preventDefault();
-    abrirChat();
-  });
   document.addEventListener("keydown", (evento) => {
     if (evento.key !== "Escape") return;
     if (shell.classList.contains("chat-ampliado")) shell.classList.remove("chat-ampliado");
-    else if (estrecho.matches && !shell.classList.contains("chat-cerrado")) cerrarChat();
+    else if (!shell.classList.contains("chat-cerrado")) cerrarChat();
   });
-  // En pantallas estrechas el chat flota: arranca minimizado para no tapar el laboratorio.
-  if (estrecho.matches) shell.classList.add("chat-cerrado");
-  estrecho.addEventListener("change", (e) => shell.classList.toggle("chat-cerrado", e.matches));
-
-  // ---------- Navegación lateral activa ----------
-  const enlaces = [...document.querySelectorAll(".side-nav a[href^='#lab']")];
-  const secciones = enlaces.map((a) => document.querySelector(a.getAttribute("href"))).filter(Boolean);
-  if ("IntersectionObserver" in window && secciones.length) {
-    const io = new IntersectionObserver((entradas) => {
-      const visible = entradas.filter((e) => e.isIntersecting)[0];
-      if (!visible) return;
-      for (const a of enlaces) a.classList.toggle("activo", a.getAttribute("href") === `#${visible.target.id}`);
-    }, { rootMargin: "0px 0px -65% 0px" });
-    secciones.forEach((s) => io.observe(s));
-  }
 
   // ---------- Saludo inicial ----------
   actualizarPractica();

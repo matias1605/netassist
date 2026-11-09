@@ -60,7 +60,12 @@ function labAddPort(data = {}) {
   if (labPorts.children.length >= 16) return;
   const row = document.createElement("div");
   row.className = "lab-port";
-  for (const [key, title, max] of [["id", "VLAN", 5], ["nombre", "Nombre", 32], ["puerto", "Puerto", 64], ["host", "Equipo conectado", 64]]) {
+  row.dataset.color = String(labPorts.children.length % 2);
+  const titulo = document.createElement("p");
+  titulo.className = "lab-port-titulo";
+  titulo.textContent = `Grupo ${labPorts.children.length + 1}`;
+  row.appendChild(titulo);
+  for (const [key, title, max] of [["id", "ID de VLAN", 5], ["nombre", "Nombre", 32], ["puerto", "Puertos de acceso", 64], ["host", "Equipo conectado", 64]]) {
     const label = document.createElement("label");
     label.textContent = title;
     const input = document.createElement("input");
@@ -73,14 +78,16 @@ function labAddPort(data = {}) {
   const remove = document.createElement("button");
   remove.type = "button";
   remove.className = "button button-quiet";
-  remove.textContent = "Quitar conexión";
+  remove.textContent = "Quitar grupo";
   remove.addEventListener("click", () => {
     if (labBusy) return;
     if (labPorts.children.length === 1) {
-      labStatus.textContent = "Mantén al menos una conexión para revisar la práctica.";
+      labStatus.textContent = "Mantén al menos un grupo para revisar la práctica.";
       return;
     }
-    row.remove(); labInvalidate(); labSetBusy(false);
+    row.remove();
+    [...labPorts.children].forEach((hermano, i) => { hermano.querySelector(".lab-port-titulo").textContent = `Grupo ${i + 1}`; hermano.dataset.color = String(i % 2); });
+    labInvalidate(); labSetBusy(false);
   });
   row.appendChild(remove);
   labPorts.appendChild(row);
@@ -89,7 +96,7 @@ function labAddPort(data = {}) {
 function labRead() {
   const value = (name) => labForm.elements.namedItem(name).value.trim();
   return { tipo: value("tipo"), nombre: value("nombre"), equipo: { alias: value("alias"), modelo: value("modelo"), ios: value("ios") }, objetivo: value("objetivo"),
-    vlans: [...labPorts.children].map(row => Object.fromEntries([...row.querySelectorAll("input")].map(input => [input.dataset.field, input.value.trim()]))) };
+    vlans: [...labPorts.children].map(row => Object.fromEntries([...row.querySelectorAll("input[data-field]")].map(input => [input.dataset.field, input.value.trim()]))) };
 }
 
 async function labRequest(path, body) {
@@ -224,6 +231,7 @@ document.getElementById("lab-reopen").addEventListener("click", async () => {
       document.getElementById("lab-result-state").textContent = `Caso reabierto · ${comprobacion === "no_realizada" ? "pendiente de comprobar en laboratorio" : `comprobación en laboratorio: ${comprobacion}`}`;
     }
     labStatus.textContent = "Caso reabierto. Si editas un dato y generas de nuevo, se actualiza el mismo caso.";
+    if (window.irAVista) window.irAVista("laboratorio");
     labResetDiagnosis(labCaseId);
   } catch (error) { labStatus.textContent = error.message; }
   finally { labSetBusy(false); }

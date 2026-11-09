@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0f1a2b">
   <title>NetAssist | Laboratorio de redes</title>
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
   <!-- Mascota Nexo: se clona en la cabecera del chat, en el escenario y en el lanzador. -->
@@ -47,114 +47,201 @@
     </svg>
   </template>
 
-  <div class="app-shell">
-    <!-- Panel izquierdo: navegación del laboratorio -->
+  <div class="app-shell chat-cerrado" data-vista="laboratorio">
+    <!-- Panel izquierdo: navegación -->
     <aside class="sidebar" aria-label="Navegación">
-      <a class="brand" href="#laboratorio-titulo" aria-label="NetAssist, inicio">
-        <span class="brand-mark" aria-hidden="true">N</span>
+      <a class="brand" href="#presentacion" data-ir="presentacion" aria-label="NetAssist, presentación">
+        <span class="brand-mark" aria-hidden="true">N<i>.</i></span>
         <span><strong>NetAssist</strong><small>Laboratorio de redes</small></span>
       </a>
-      <nav class="side-nav">
-        <p class="side-label">Laboratorio</p>
-        <a href="#lab-cases-title"><span class="nav-icon" aria-hidden="true">▤</span>Casos guardados</a>
-        <a href="#lab-form-title"><span class="nav-icon" aria-hidden="true">✎</span>Datos de la práctica</a>
-        <a href="#lab-review-title"><span class="nav-icon" aria-hidden="true">✓</span>Revisión</a>
-        <a href="#lab-result-title"><span class="nav-icon" aria-hidden="true">◆</span>Resultado</a>
-        <a href="#lab-diag-title"><span class="nav-icon" aria-hidden="true">⌁</span>Diagnóstico</a>
-        <p class="side-label">Asistente</p>
-        <a href="#chat" id="nav-chat"><span class="nav-icon" aria-hidden="true">☺</span>Hablar con Nexo</a>
+      <nav class="side-nav" aria-label="Espacio de trabajo">
+        <p class="side-label">Espacio de trabajo</p>
+        <a href="#presentacion" data-ir="presentacion"><span class="nav-icon" aria-hidden="true">←</span>Presentación</a>
+        <a href="#laboratorio" data-ir="laboratorio" class="activo"><span class="nav-icon" aria-hidden="true">▦</span>Laboratorio<span class="nav-dot" aria-hidden="true"></span></a>
+        <a href="#practicas" data-ir="practicas"><span class="nav-icon" aria-hidden="true">▤</span>Mis prácticas</a>
       </nav>
+      <div class="side-externo">
+        <p class="side-label">Tu laboratorio externo</p>
+        <h3>Cisco Packet Tracer</h3>
+        <p>Prepara aquí tu práctica. Aplica los comandos en el simulador y vuelve con las salidas.</p>
+        <span class="chip-manual">Intercambio manual</span>
+      </div>
       <div class="side-footer">
-        <button id="contact-button" class="button button-ghost" type="button">Hablar con un docente/técnico</button>
-        <p>Las recomendaciones deben verificarse en el equipo y la versión correspondientes.</p>
+        <p>¿Necesitas ayuda?</p>
+        <button id="contact-button" class="link-side" type="button">Contactar al docente <span aria-hidden="true">↗</span></button>
       </div>
     </aside>
 
-    <!-- Centro: dashboard del laboratorio -->
-    <main class="workspace">
-      <section class="laboratorio" aria-labelledby="laboratorio-titulo">
-        <header class="laboratorio-heading">
-          <div>
-            <p class="lab-eyebrow">VLAN · Puertos de acceso · Cisco IOS</p>
-            <h1 id="laboratorio-titulo">Espacio de laboratorio</h1>
-            <p>Prepara los datos de un switch y revisa una propuesta antes de probarla en el simulador.</p>
-          </div>
-        </header>
+    <div class="main-col">
+      <header class="topbar">
+        <nav class="crumbs" aria-label="Ruta"><span>Espacio de trabajo</span><i aria-hidden="true">/</i><strong id="crumb-actual">Laboratorio</strong></nav>
+        <span id="servicio-estado" class="servicio" role="status"><span class="status-dot"></span><span id="servicio-texto">Comprobando servicio…</span></span>
+      </header>
 
-        <div class="lab-steps" aria-hidden="true">
-          <span>1 · Datos</span><span>2 · Revisión</span><span>3 · Resultado</span><span>4 · Diagnóstico</span>
-        </div>
-
-        <section class="lab-sheet lab-cases" aria-labelledby="lab-cases-title">
-          <h2 id="lab-cases-title">Casos guardados</h2>
-          <p id="lab-cases-empty" class="lab-help">Aún no hay casos. Al generar una propuesta se guarda el caso para reabrirlo.</p>
-          <div class="lab-buttons">
-            <label class="lab-case-select">Estado<select id="lab-filter"><option value="">Todos</option></select></label>
-            <label class="lab-confirm"><input id="lab-archived" type="checkbox"> Incluir archivados</label>
+      <main class="workspace">
+        <!-- ================= Vista: Presentación ================= -->
+        <section id="vista-presentacion" class="vista vista-presentacion" hidden aria-labelledby="presentacion-titulo">
+          <div class="vista-inner">
+            <p class="eyebrow">Aprende · Configura · Comprueba</p>
+            <h1 id="presentacion-titulo">Redes Cisco, paso a paso y con tu propio ritmo.</h1>
+            <p class="lead">NetAssist te ayuda a preparar una práctica de VLAN, a revisar la propuesta con reglas claras y a entender cada comando antes de probarlo en tu simulador.</p>
+            <div class="presentacion-pasos">
+              <article><span>01</span><h3>Prepara</h3><p>Describe el switch y los grupos de puertos. Solo datos ficticios.</p></article>
+              <article><span>02</span><h3>Revisa</h3><p>Las reglas validan VLAN, puertos y nombres sin consultar a la IA.</p></article>
+              <article><span>03</span><h3>Comprueba</h3><p>Pega las salidas de Packet Tracer y compáralas con lo declarado.</p></article>
+            </div>
+            <div class="lab-buttons">
+              <button class="button button-contact" type="button" data-ir="laboratorio">Abrir el laboratorio</button>
+              <button class="button button-quiet" type="button" data-ir="practicas">Ver mis prácticas</button>
+            </div>
           </div>
-          <div class="lab-buttons"><label class="lab-case-select">Caso<select id="lab-cases"></select></label><button id="lab-reopen" class="button button-quiet" type="button">Reabrir caso</button></div>
-          <div class="lab-buttons"><button id="lab-report" class="button button-quiet" type="button" disabled>Descargar informe (.md)</button><button id="lab-archive" class="button button-quiet" type="button" disabled>Archivar caso</button></div>
-          <details><summary>Mi clave de casos</summary>
-            <label class="lab-case-select">Clave personal<input id="lab-user" maxlength="64" autocomplete="off" spellcheck="false"></label>
-            <p class="lab-help">Separa tus casos de los de otras personas en este navegador. No es una contraseña de cuenta. Guárdala para reabrir tus casos desde otro navegador.</p>
-          </details>
-          <p id="lab-cases-status" role="status" class="lab-help"></p>
         </section>
 
-        <div class="laboratorio-grid">
-          <form id="laboratorio-form" class="lab-sheet">
-            <h2 id="lab-form-title">1. Datos de la práctica</h2>
-            <p class="lab-help">Solo datos ficticios. Un switch, puertos de acceso; sin IP, trunk ni enrutamiento entre VLAN.</p>
-            <div class="lab-fields">
-              <label>Tipo de tarea<select name="tipo"><option value="configuracion">Generar configuración</option><option value="topologia">Generar topología</option></select></label>
-              <label>Nombre de la práctica<input name="nombre" maxlength="120"></label>
-              <label>Alias del switch<input name="alias" maxlength="64"></label>
-              <label>Modelo<input name="modelo" maxlength="120"></label>
-              <label>Versión de IOS<input name="ios" maxlength="80"></label>
+        <!-- ================= Vista: Laboratorio ================= -->
+        <section id="vista-laboratorio" class="vista laboratorio" aria-labelledby="laboratorio-titulo">
+          <div class="vista-inner">
+            <header class="laboratorio-heading">
+              <div>
+                <p class="eyebrow">Aprende · Configura · Comprueba</p>
+                <h1 id="laboratorio-titulo">Tu próxima red empieza aquí.</h1>
+                <p class="lead">Organiza una práctica Cisco y entiende cada paso con tu asistente.</p>
+              </div>
+              <div class="sello" aria-hidden="true"><strong>Cisco IOS</strong><span>VLAN + acceso</span></div>
+            </header>
+
+            <details class="ejemplo-card">
+              <summary>Probar con un ejemplo</summary>
+              <div class="ejemplo-cuerpo">
+                <p class="lab-help">Carga una práctica ficticia ya completa para ver cómo funciona cada paso. Puedes editarla antes de revisarla.</p>
+                <button id="lab-example" class="button button-quiet" type="button">Cargar ejemplo</button>
+              </div>
+            </details>
+
+            <div class="laboratorio-grid">
+              <!-- Izquierda: preparar la práctica -->
+              <form id="laboratorio-form" class="lab-sheet lab-form" aria-labelledby="lab-form-title">
+                <header class="card-head">
+                  <span class="card-num" aria-hidden="true">01</span>
+                  <div>
+                    <h2 id="lab-form-title">Prepara tu práctica</h2>
+                    <p class="lab-help">Define el equipo y los grupos de puertos.</p>
+                  </div>
+                </header>
+                <label>Nombre de la práctica<input name="nombre" maxlength="120" placeholder="Separar Administración y Laboratorio"></label>
+                <label>Tipo de tarea<select name="tipo"><option value="configuracion">Generar configuración</option><option value="topologia">Generar topología</option></select></label>
+
+                <p class="form-sec"><span>El equipo</span><span>Cisco IOS</span></p>
+                <div class="lab-fields">
+                  <label>Alias del switch<input name="alias" maxlength="64" placeholder="Ej. SW1"></label>
+                  <label>Modelo del switch<input name="modelo" maxlength="120" placeholder="Ej. Catalyst 2960"></label>
+                  <label>Versión de IOS<input name="ios" maxlength="80" placeholder="Ej. 15.0"></label>
+                </div>
+                <p class="lab-help">Modelo e IOS son obligatorios para configuración. Si no los conoces, déjalos vacíos y revisa qué falta.</p>
+
+                <fieldset class="lab-ports"><legend class="form-sec"><span>Grupos de puertos</span><span>VLAN de acceso</span></legend><div id="laboratorio-puertos"></div></fieldset>
+                <button id="lab-add" class="button button-quiet" type="button">+ Añadir grupo</button>
+
+                <label class="lab-objective">Objetivo y requisitos<textarea name="objetivo" rows="3" maxlength="1500" placeholder="Qué debe lograr la práctica"></textarea></label>
+                <div class="lab-buttons"><button class="button button-contact" type="submit">Revisar datos</button></div>
+                <p id="lab-status" role="status" class="lab-help">Cargando ejemplo compartido…</p>
+              </form>
+
+              <!-- Derecha: tu práctica con pestañas -->
+              <section class="lab-sheet lab-practica" aria-labelledby="practica-titulo">
+                <header class="practica-head">
+                  <div>
+                    <p class="eyebrow eyebrow-sm">Tu práctica</p>
+                    <h2 id="practica-titulo">Un espacio para construir</h2>
+                  </div>
+                  <span id="practica-estado" class="pill">Sin práctica abierta</span>
+                </header>
+                <div class="tabs" role="tablist" aria-label="Secciones de la práctica">
+                  <button id="tab-config" class="tab activa" type="button" role="tab" aria-selected="true" aria-controls="panel-config" data-tab="config">Configuración</button>
+                  <button id="tab-comprob" class="tab" type="button" role="tab" aria-selected="false" aria-controls="panel-comprob" data-tab="comprob" tabindex="-1">Comprobaciones</button>
+                  <button id="tab-fuentes" class="tab" type="button" role="tab" aria-selected="false" aria-controls="panel-fuentes" data-tab="fuentes" tabindex="-1">Fuentes</button>
+                </div>
+
+                <div id="panel-config" class="tab-panel" role="tabpanel" aria-labelledby="tab-config" aria-live="polite">
+                  <div id="lab-result-empty" class="vacio">
+                    <svg viewBox="0 0 280 110" aria-hidden="true" focusable="false">
+                      <line x1="40" y1="55" x2="240" y2="55" class="v-enlace"/>
+                      <rect x="22" y="37" width="36" height="36" rx="5" class="v-pc1"/>
+                      <rect x="100" y="28" width="80" height="54" rx="10" class="v-sw"/>
+                      <g class="v-puertos"><rect x="112" y="48" width="10" height="5" rx="1"/><rect x="126" y="48" width="10" height="5" rx="1"/><rect x="140" y="48" width="10" height="5" rx="1"/><rect x="154" y="48" width="10" height="5" rx="1"/></g>
+                      <rect x="224" y="37" width="36" height="36" rx="5" class="v-pc2"/>
+                    </svg>
+                    <p class="vacio-eyebrow">De la idea a la práctica</p>
+                    <p class="lab-help">Aquí aparecerá la configuración propuesta. Completa los datos, revísalos y genera la propuesta.</p>
+                  </div>
+                  <p id="lab-result-state" class="lab-state hidden">Sin propuesta</p>
+                  <div id="lab-result" class="bubble hidden"></div>
+                  <p class="lab-help lab-aviso">Comprobación en laboratorio: no realizada. Generar una respuesta no ejecuta comandos ni certifica conectividad.</p>
+                </div>
+
+                <div id="panel-comprob" class="tab-panel" role="tabpanel" aria-labelledby="tab-comprob" hidden>
+                  <section aria-labelledby="lab-review-title" class="sub-sec">
+                    <h3 id="lab-review-title">Revisión de datos</h3>
+                    <p id="lab-review-empty" class="lab-help">Completa el formulario y pulsa «Revisar datos». Este paso no consulta a la IA.</p>
+                    <div id="lab-review" class="hidden">
+                      <p id="lab-missing" role="status"></p>
+                      <p class="lab-help">Se aplican reglas de VLAN, puertos y nombres. Aprobarlas no equivale a probar en el simulador.</p>
+                      <details><summary>Propuesta determinista (sin IA)</summary><div id="lab-preview" class="bubble"></div></details>
+                      <details><summary>Datos y solicitud que se enviarán</summary><pre id="lab-draft" class="lab-draft"></pre></details>
+                      <label class="lab-confirm"><input id="lab-confirm" type="checkbox"> Revisé estos datos ficticios y quiero generar una propuesta.</label>
+                      <div class="lab-buttons"><button id="lab-generate" class="button button-contact" type="button" disabled>Generar propuesta</button><button id="lab-discard" class="button button-quiet" type="button">Descartar revisión</button></div>
+                    </div>
+                  </section>
+                  <section aria-labelledby="lab-diag-title" aria-live="polite" class="sub-sec">
+                    <h3 id="lab-diag-title">Diagnóstico con evidencia</h3>
+                    <p id="lab-diag-empty" class="lab-help">Genera o reabre una práctica para diagnosticarla con las salidas de tu simulador.</p>
+                    <div id="lab-diag-box" class="hidden">
+                      <p class="lab-help">Ejecuta los comandos en tu simulador y pega las salidas (<code>show vlan brief</code>, <code>show interfaces &lt;puerto&gt; switchport</code>). Se comparan con los datos declarados; no se consulta ningún dispositivo.</p>
+                      <label class="lab-objective">Salidas de verificación<textarea id="lab-evidence" rows="7" maxlength="8000" spellcheck="false"></textarea></label>
+                      <div class="lab-buttons"><button id="lab-diagnose" class="button button-contact" type="button">Analizar salidas</button></div>
+                      <p id="lab-diag-status" role="status" class="lab-help"></p>
+                      <div id="lab-diag" class="bubble hidden"></div>
+                    </div>
+                  </section>
+                </div>
+
+                <div id="panel-fuentes" class="tab-panel" role="tabpanel" aria-labelledby="tab-fuentes" hidden>
+                  <ul class="fuentes">
+                    <li><strong>Reglas deterministas</strong><span>VLAN, puertos de acceso y nombres se validan en el servidor, sin IA.</span></li>
+                    <li><strong>Base de conocimiento</strong><span>Las explicaciones se apoyan en documentación Cisco cargada en el proyecto.</span></li>
+                    <li><strong>Tu simulador</strong><span>Las salidas de Cisco Packet Tracer las pegas tú; NetAssist nunca se conecta a un equipo.</span></li>
+                  </ul>
+                </div>
+              </section>
             </div>
-            <p class="lab-help">Modelo e IOS son obligatorios para configuración. Si no los conoces, déjalos vacíos y revisa qué falta.</p>
-            <fieldset class="lab-ports"><legend>VLAN y equipos conectados</legend><div id="laboratorio-puertos"></div></fieldset>
-            <button id="lab-add" class="button button-quiet" type="button">Añadir conexión</button>
-            <label class="lab-objective">Objetivo y requisitos<textarea name="objetivo" rows="4" maxlength="1500"></textarea></label>
-            <div class="lab-buttons"><button class="button button-contact" type="submit">Revisar datos</button><button id="lab-example" class="button button-quiet" type="button">Cargar ejemplo</button></div>
-            <p id="lab-status" role="status" class="lab-help">Cargando ejemplo compartido…</p>
-          </form>
-          <div class="lab-output">
-            <section class="lab-sheet" aria-labelledby="lab-review-title">
-              <h2 id="lab-review-title">2. Revisión</h2>
-              <p id="lab-review-empty" class="lab-help">Completa el formulario y pulsa Revisar datos. Este paso no consulta a la IA.</p>
-              <div id="lab-review" class="hidden">
-                <p id="lab-missing" role="status"></p>
-                <p class="lab-help">Se aplican reglas de VLAN, puertos y nombres. Aprobarlas no equivale a probar en el simulador.</p>
-                <details><summary>Propuesta determinista (sin IA)</summary><div id="lab-preview" class="bubble"></div></details>
-                <details><summary>Datos y solicitud que se enviarán</summary><pre id="lab-draft" class="lab-draft"></pre></details>
-                <label class="lab-confirm"><input id="lab-confirm" type="checkbox"> Revisé estos datos ficticios y quiero generar una propuesta.</label>
-                <div class="lab-buttons"><button id="lab-generate" class="button button-contact" type="button" disabled>Generar propuesta</button><button id="lab-discard" class="button button-quiet" type="button">Descartar revisión</button></div>
+          </div>
+        </section>
+
+        <!-- ================= Vista: Mis prácticas ================= -->
+        <section id="vista-practicas" class="vista" hidden aria-labelledby="lab-cases-title">
+          <div class="vista-inner vista-estrecha">
+            <p class="eyebrow">Tu historial</p>
+            <h1 id="lab-cases-title">Mis prácticas</h1>
+            <p class="lead">Cada propuesta generada se guarda para que puedas reabrirla, descargar su informe o archivarla.</p>
+            <section class="lab-sheet lab-cases" aria-label="Prácticas guardadas">
+              <p id="lab-cases-empty" class="lab-help">Aún no hay prácticas. Al generar una propuesta se guarda para reabrirla.</p>
+              <div class="lab-buttons">
+                <label class="lab-case-select">Estado<select id="lab-filter"><option value="">Todos</option></select></label>
+                <label class="lab-confirm"><input id="lab-archived" type="checkbox"> Incluir archivadas</label>
               </div>
-            </section>
-            <section class="lab-sheet" aria-labelledby="lab-result-title" aria-live="polite">
-              <h2 id="lab-result-title">3. Resultado</h2>
-              <p id="lab-result-state" class="lab-state">Sin propuesta</p>
-              <p class="lab-help">Comprobación en laboratorio: no realizada. Generar una respuesta no ejecuta comandos ni certifica conectividad.</p>
-              <div id="lab-result" class="bubble hidden"></div>
-            </section>
-            <section class="lab-sheet" aria-labelledby="lab-diag-title" aria-live="polite">
-              <h2 id="lab-diag-title">4. Diagnóstico con evidencia</h2>
-              <p id="lab-diag-empty" class="lab-help">Genera o reabre un caso para diagnosticarlo con las salidas de tu simulador.</p>
-              <div id="lab-diag-box" class="hidden">
-                <p class="lab-help">Ejecuta los comandos en tu simulador o laboratorio y pega las salidas (<code>show vlan brief</code>, <code>show interfaces &lt;puerto&gt; switchport</code>). Se comparan con los datos declarados; no se consulta ningún dispositivo.</p>
-                <label class="lab-objective">Salidas de verificación<textarea id="lab-evidence" rows="8" maxlength="8000" spellcheck="false"></textarea></label>
-                <div class="lab-buttons"><button id="lab-diagnose" class="button button-contact" type="button">Analizar salidas</button></div>
-                <p id="lab-diag-status" role="status" class="lab-help"></p>
-                <div id="lab-diag" class="bubble hidden"></div>
-              </div>
+              <div class="lab-buttons"><label class="lab-case-select">Práctica<select id="lab-cases"></select></label><button id="lab-reopen" class="button button-quiet" type="button">Reabrir en el laboratorio</button></div>
+              <div class="lab-buttons"><button id="lab-report" class="button button-quiet" type="button" disabled>Descargar informe (.md)</button><button id="lab-archive" class="button button-quiet" type="button" disabled>Archivar caso</button></div>
+              <details><summary>Mi clave de casos</summary>
+                <label class="lab-case-select">Clave personal<input id="lab-user" maxlength="64" autocomplete="off" spellcheck="false"></label>
+                <p class="lab-help">Separa tus prácticas de las de otras personas en este navegador. No es una contraseña de cuenta. Guárdala para reabrirlas desde otro navegador.</p>
+              </details>
+              <p id="lab-cases-status" role="status" class="lab-help"></p>
             </section>
           </div>
-        </div>
-      </section>
-    </main>
+        </section>
+      </main>
+    </div>
 
-    <!-- Derecha: chat propio de Nexo -->
+    <!-- Chat propio de Nexo: panel flotante -->
     <section id="chat" class="chat-panel" aria-label="Conversación con Nexo">
       <header class="chat-header">
         <div class="chat-avatar" data-nexo="mini"></div>
@@ -177,7 +264,7 @@
 
       <div class="nexo-stage" id="nexo-stage">
         <button class="nexo-stage-bot" id="nexo-bot" type="button" aria-label="Saludar a Nexo" data-nexo="stage"></button>
-        <p class="nexo-speech" id="nexo-speech" aria-live="polite">¡Hola! Soy Nexo. ¿Montamos una práctica?</p>
+        <p class="nexo-speech" id="nexo-speech" aria-live="polite">¡Hola! Soy Nexo. ¿Vemos tu red juntos?</p>
       </div>
 
       <details class="quick-actions" aria-label="Acciones rápidas de IA" open>
@@ -225,12 +312,13 @@
         <p class="composer-hint">No compartas contraseñas, claves ni datos de acceso, tampoco en imágenes.</p>
       </form>
     </section>
-  </div>
 
-  <!-- Lanzador flotante cuando el chat está minimizado -->
-  <button id="nexo-launcher" class="nexo-launcher" type="button" aria-label="Abrir chat con Nexo" data-nexo="launcher">
-    <span class="nexo-launcher-tip">¿Te ayudo?</span>
-  </button>
+    <!-- Lanzador flotante: Nexo con su globo -->
+    <button id="nexo-launcher" class="nexo-launcher" type="button" aria-label="Abrir chat con Nexo">
+      <span class="nexo-launcher-tip" id="nexo-launcher-tip"><strong>¡Hola! Soy Nexo.</strong><span>¿Vemos tu red juntos?</span></span>
+      <span class="nexo-launcher-bot" data-nexo="launcher"></span>
+    </button>
+  </div>
 
   <dialog id="contact-dialog" class="contact-dialog">
     <div class="dialog-content">
@@ -242,8 +330,9 @@
     </div>
   </dialog>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js" defer></script>
-  <script src="app.js?v=9" defer></script>
-  <script src="laboratorio.js?v=3" defer></script>
-  <script src="mascota.js?v=1" defer></script>
+  <script src="app.js?v=10" defer></script>
+  <script src="laboratorio.js?v=4" defer></script>
+  <script src="mascota.js?v=3" defer></script>
+  <script src="vistas.js?v=2" defer></script>
 </body>
 </html>
