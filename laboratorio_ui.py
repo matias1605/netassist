@@ -61,7 +61,7 @@ def saludo_de_practica(datos):
     lineas = "\n".join(f"- VLAN {v['id']} **{v['nombre']}**: {v['puerto']} → {v['host']}" for v in datos["vlans"])
     return (f"¡Hola! Ya tengo los datos de tu práctica **«{datos['nombre']}»** "
             f"({equipo['alias']} · {equipo['modelo']}):\n\n{lineas}\n\n"
-            "¿Qué dudas tienes? Escríbelas abajo o elige una de las dudas frecuentes.")
+            "¿Qué dudas tienes? Escríbelas abajo o elige una de las sugerencias.")
 
 
 def saludo_con_ia(cadena, datos):
@@ -134,7 +134,11 @@ def mostrar_laboratorio(cadena, almacen=None):
                 st.session_state.practica = tarea.model_dump()
                 with st.spinner("Nexo está leyendo tu práctica…"):
                     saludo = saludo_con_ia(cadena, st.session_state.practica)
-                st.session_state.mensajes = [{"role": "assistant", "content": saludo, "saludo": True}]
+                st.session_state.mensajes = [{
+                    "role": "assistant", "content": saludo, "saludo": True,
+                    "sugerencias": [("Generar la configuración", "Genera la configuración Cisco IOS de mi práctica."),
+                                    ("Dibujar la topología", "Genera la topología de mi práctica.")],
+                }]
                 st.session_state.chat_abierto = True
             except ValidationError:
                 st.error("Revisa la longitud de los campos y registra entre 1 y 16 conexiones.")

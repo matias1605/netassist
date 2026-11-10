@@ -176,19 +176,47 @@ def alternar_chat() -> None:
     st.session_state.chat_abierto = not st.session_state.chat_abierto
 
 
-TEMAS = [
-    ("Generar la configuración", lambda n: f"Genera la configuración Cisco IOS de mi práctica «{n}»."),
-    ("Explicar cada comando", lambda n: "Explícame qué hace cada comando de la configuración de mi práctica."),
-    ("Comandos para comprobarlo", lambda n: "Dame los comandos para comprobar mi práctica en el simulador y qué debería ver en cada uno."),
-    ("Dibujar la topología", lambda n: "Genera la topología de mi práctica."),
-    ("Errores comunes", lambda n: "¿Qué errores comunes debo evitar en esta práctica y cómo los reviso?"),
+SUG_CONFIG = ("Generar la configuración", "Genera la configuración Cisco IOS de mi práctica.")
+SUG_EXPLICAR = ("Explicar cada comando", "Explícame qué hace cada comando de esta configuración.")
+SUG_COMPROBAR = ("Comandos para comprobarlo", "Dame los comandos para comprobarlo en el simulador y qué debería ver en cada uno.")
+SUG_TOPOLOGIA = ("Dibujar la topología", "Genera la topología de mi práctica.")
+SUG_ERRORES = ("Errores comunes", "¿Qué errores comunes debo evitar y cómo los reviso?")
+SUG_DIAGNOSTICO = ("Diagnosticar paso a paso", "¿Qué comandos uso para diagnosticar el problema paso a paso?")
+SUG_SALIDA = ("Leer la salida", "¿Qué significa cada parte de la salida y qué valores serían un error?")
+
+# Palabras de la pregunta → dos sugerencias de seguimiento (se usa la primera regla que coincida).
+REGLAS_SUGERENCIAS = [
+    (("topolog", "diagrama", "dibuja"), (SUG_CONFIG, SUG_COMPROBAR)),
+    (("no funciona", "no hace ping", "falla", "error", "down", "problema", "no conecta", "no responde"),
+     (SUG_DIAGNOSTICO, SUG_ERRORES)),
+    (("explica", "qué hace", "que hace", "significa"), (SUG_COMPROBAR, SUG_ERRORES)),
+    (("comprob", "verific", "show ", "salida"), (SUG_SALIDA, SUG_ERRORES)),
+    (("configura", "comandos", "genera", "vlan", "interfaz", "ruta"), (SUG_EXPLICAR, SUG_COMPROBAR)),
 ]
 
 
-def enviar_tema(indice: int) -> None:
+def sugerencias_para(pregunta: str, saludo: bool = False) -> list[tuple[str, str]]:
+    """Dos preguntas de seguimiento relacionadas con lo que se acaba de preguntar (sin llamar a la IA)."""
+    if saludo:
+        return [SUG_CONFIG, SUG_TOPOLOGIA]
+    texto = pregunta.lower()
+    for claves, sugerencias in REGLAS_SUGERENCIAS:
+        if any(clave in texto for clave in claves):
+            return list(sugerencias)
+    return [SUG_COMPROBAR, SUG_ERRORES]
+
+
+def enviar_sugerencia(texto: str) -> None:
     """Envía directamente la sugerencia elegida, sin pasar por un borrador."""
-    nombre = st.session_state.get("lab_nombre") or "mi práctica"
-    st.session_state.solicitud_accion = TEMAS[indice][1](nombre)
+    st.session_state.solicitud_accion = texto
+
+
+def mostrar_sugerencias(sugerencias: list[tuple[str, str]], clave: str) -> None:
+    """Dos tarjetas bajo la última respuesta; al pulsar una se envía su pregunta."""
+    with st.container(key=f"seguimiento-{clave}", horizontal=True, gap="small"):
+        for i, (titulo, pregunta) in enumerate(sugerencias):
+            st.button(f"**{titulo}**  \n{pregunta}", key=f"sug-{clave}-{i}",
+                      on_click=enviar_sugerencia, args=(pregunta,), width="stretch")
 
 
 def preparar_accion(prompt: str) -> None:
@@ -278,7 +306,8 @@ if st.session_state.chat_abierto:
             if not (st.session_state.mensajes and st.session_state.mensajes[0].get("saludo")):
                 with st.chat_message("assistant", avatar=AVATAR_BOT):
                     st.markdown(BIENVENIDA)
-            for mensaje in st.session_state.mensajes:
+            ultimo = len(st.session_state.mensajes) - 1
+            for n, mensaje in enumerate(st.session_state.mensajes):
                 with st.chat_message(mensaje["role"], avatar=AVATARES[mensaje["role"]]):
                     if mensaje["role"] == "user":
                         marcar_mensaje_usuario()
@@ -290,13 +319,11 @@ if st.session_state.chat_abierto:
                             st.html(fichas_consultadas(mensaje["fuentes"]))
                     else:
                         st.markdown(mensaje["content"])
+                # Solo la última respuesta lleva sugerencias, y solo si llegó a terminar.
+                if n == ultimo and mensaje["role"] == "assistant" and mensaje.get("sugerencias"):
+                    mostrar_sugerencias(mensaje["sugerencias"], str(n))
 
         with st.container(key="pie-chat"):
-            with st.container(key="sugerencias-chat"):
-                st.html('<p class="nx-sug-intro">Dudas frecuentes</p>')
-                with st.container(horizontal=True, gap="small", key="chips-sugerencias"):
-                    for i, tema in enumerate(TEMAS):
-                        st.button(tema[0], key=f"tema-{i}", on_click=enviar_tema, args=(i,), width="content")
             entrada = st.chat_input(
                 "Describe tu problema de red…",
                 accept_file=True,
@@ -363,6 +390,10 @@ if st.session_state.chat_abierto:
                         st.html(fichas_consultadas(detalle["fuentes"]))
 
             bloqueado = detalle["bloqueado"] or respuesta == MENSAJE_DATOS_SENSIBLES
+            sugerencias = sugerencias_para(texto) if lleva_fichas(detalle) else []
+            if sugerencias:
+                with conversacion:
+                    mostrar_sugerencias(sugerencias, str(len(st.session_state.mensajes) + 1))
             st.session_state.mensajes.append(
                 {"role": "user", "content": texto, "imagen": imagen_bytes, "bloqueado": bloqueado}
             )
@@ -372,5 +403,6 @@ if st.session_state.chat_abierto:
                     "content": respuesta,
                     "bloqueado": bloqueado,
                     **({"fuentes": detalle["fuentes"]} if lleva_fichas(detalle) else {}),
+                    **({"sugerencias": sugerencias} if sugerencias else {}),
                 }
             )
