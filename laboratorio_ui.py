@@ -11,6 +11,7 @@ from estilos_streamlit import ENCABEZADO_LAB, card_head, form_sec
 from backend.laboratorio import TareaLaboratorio, ejemplo_laboratorio, guardar_practica
 from backend.llm import MENSAJE_FALLBACK
 from backend.seguridad import MENSAJE_DATOS_SENSIBLES
+from backend.tema import MENSAJE_FUERA_DE_TEMA
 
 logger = logging.getLogger(__name__)
 CLAVE_LOCAL = "netassist-local-usuario"
@@ -73,7 +74,7 @@ def saludo_con_ia(cadena, datos):
     except Exception:
         logger.warning("No se pudo generar el saludo con IA.")
         return saludo_de_practica(datos)
-    if not respuesta or respuesta in {MENSAJE_FALLBACK, MENSAJE_DATOS_SENSIBLES}:
+    if not respuesta or respuesta in {MENSAJE_FALLBACK, MENSAJE_DATOS_SENSIBLES, MENSAJE_FUERA_DE_TEMA}:
         return saludo_de_practica(datos)
     return respuesta
 

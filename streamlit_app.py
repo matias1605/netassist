@@ -143,7 +143,8 @@ def estado_de_respuesta(detalle: dict) -> str:
 
 def lleva_fichas(detalle: dict) -> bool:
     """Las fichas consultadas se muestran solo en respuestas reales (no en bloqueos ni fallos)."""
-    return not detalle["bloqueado"] and detalle["respuesta"] != MENSAJE_FALLBACK
+    return (not detalle["bloqueado"] and not detalle.get("fuera_de_tema")
+            and detalle["respuesta"] != MENSAJE_FALLBACK)
 
 
 def mostrar_respuesta(texto: str) -> None:

@@ -8,7 +8,7 @@ import numpy as np
 import streamlit as st
 from streamlit.testing.v1 import AppTest
 
-from backend import cadena, llm, rag, seguridad
+from backend import cadena, llm, rag, seguridad, tema
 import estilos_streamlit
 import topologia_ui
 
@@ -211,6 +211,73 @@ class CadenaDetalladaTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await cadena.crear_cadena(_Rag(FRAGMENTOS)).ainvoke({"mensajes": [mensaje()]}), "Texto")
 
 
+# --- Alcance: solo temas de redes -------------------------------------------------------
+class AlcanceTests(unittest.TestCase):
+    FUERA = [
+        "¿Quién es el presidente del Perú?", "quien es la presidenta del peru", "¿Cómo hago una pizza?",
+        "¿Quién ganó el mundial 2022?", "Resuelve esta ecuación: 2x+3=7", "Escríbeme un poema de amor",
+        "¿Cuál es la capital de Francia?",
+    ]
+    DENTRO = [
+        "¿Cómo configuro SSH en el switch?", "la PC1 no hace ping a la PC2", "Gi0/1 aparece down",
+        "¿qué es una máscara de subred?", "show vlan brief no muestra nada", "192.168.1.1 no responde",
+        "R2 no aprende rutas", "hola", "gracias!", "Genera la topología de mi práctica.",
+        "¿Qué hace enable secret?", "Dame los comandos para comprobar mi práctica",
+    ]
+    HISTORIAL = [mensaje("¿Cómo creo la VLAN 10?"), mensaje("Usa vlan 10.", "assistant")]
+
+    def fuera(self, texto, historial=(), fichas=(), imagen=None):
+        entrada = {"mensajes": [*historial, mensaje(texto)], "imagen": imagen}
+        return tema.es_fuera_de_tema(entrada, lambda _: list(fichas))
+
+    def test_temas_ajenos_se_detectan_incluso_en_mitad_de_la_conversacion(self):
+        for texto in self.FUERA:
+            with self.subTest(texto=texto):
+                self.assertTrue(self.fuera(texto))
+                self.assertTrue(self.fuera(texto, self.HISTORIAL))
+
+    def test_preguntas_de_redes_saludos_y_seguimientos_pasan(self):
+        for texto in self.DENTRO:
+            with self.subTest(texto=texto):
+                self.assertFalse(self.fuera(texto))
+        for texto in ("explícalo mejor", "¿y eso por qué pasa?", "no me sale"):
+            with self.subTest(texto=texto):
+                self.assertFalse(self.fuera(texto, self.HISTORIAL))
+
+    def test_casos_que_deciden_otros(self):
+        self.assertFalse(self.fuera("¿Qué ves aquí?", imagen={"mime": "image/png"}))  # captura: siempre se analiza
+        self.assertFalse(self.fuera("¿Quién inventó esto?", fichas=[{"archivo": "x"}]))  # las fichas lo cubren
+        # Los datos de la práctica que añade la app no convierten la pregunta en "de redes".
+        con_practica = "¿Quién es el presidente del Perú?\n\nDatos de mi práctica (ficticios):\n{\"vlans\": []}"
+        self.assertTrue(self.fuera(con_practica))
+        # Si la búsqueda falla, decide el modelo (no se bloquea por un error interno).
+        entrada = {"mensajes": [mensaje("¿Quién es el presidente?")]}
+        self.assertFalse(tema.es_fuera_de_tema(entrada, MagicMock(side_effect=RuntimeError("índice"))))
+
+
+class AlcanceCadenaTests(unittest.IsolatedAsyncioTestCase):
+    async def test_fuera_de_tema_no_llama_al_modelo(self):
+        with patch.object(cadena, "generar_con_respaldo", AsyncMock()) as proveedor:
+            texto = await cadena.crear_cadena(_Rag([])).ainvoke({"mensajes": [mensaje("¿Quién es el presidente del Perú?")]})
+            detalle = await cadena.crear_cadena_detallada(_Rag([])).ainvoke({"mensajes": [mensaje("¿Cómo hago una pizza?")]})
+        proveedor.assert_not_called()
+        self.assertEqual(texto, tema.MENSAJE_FUERA_DE_TEMA)
+        self.assertEqual(detalle["respuesta"], tema.MENSAJE_FUERA_DE_TEMA)
+        self.assertTrue(detalle["fuera_de_tema"])
+        self.assertEqual((detalle["fuentes"], detalle["fragmentos"]), ([], 0))
+
+    async def test_datos_sensibles_tienen_prioridad(self):
+        detalle = await cadena.crear_cadena_detallada(_Rag([])).ainvoke({"mensajes": [mensaje("token=abc")]})
+        self.assertTrue(detalle["bloqueado"])
+
+    def test_el_prompt_limita_el_alcance(self):
+        from backend.prompts import construir_prompt
+
+        prompt = construir_prompt("", "soporte")
+        self.assertIn("Solo respondes sobre redes", prompt)
+        self.assertFalse(seguridad.contiene_datos_sensibles(prompt))
+
+
 # --- Estilos del chat -------------------------------------------------------------------
 class EstilosChatTests(unittest.TestCase):
     def test_marca_estado(self):
@@ -300,7 +367,8 @@ class ChatStreamlitTests(unittest.TestCase):
 
     @staticmethod
     def buscar(consulta):
-        if "pizza" in consulta:
+        # Como el índice real: lo que no es de redes no encuentra fichas si se busca solo.
+        if "pizza" in consulta or consulta.startswith("¿Quién es"):
             return []
         return [{"texto": "switchport access vlan 10", "archivo": "cisco_ios_vlan_switching.txt", "distancia": 0.2}]
 
@@ -324,10 +392,26 @@ class ChatStreamlitTests(unittest.TestCase):
         self.assertEqual(ultimo["fuentes"], ["cisco_ios_vlan_switching.txt"])
         self.assertTrue(any("VLAN y switching" in h.proto.body for h in app.get("html")))
 
-    def test_pregunta_fuera_de_tema_pone_rojo(self):
-        app = self.enviar("¿Cómo hago una pizza?", "Solo ayudo con redes Cisco.")
+    def test_pregunta_fuera_de_tema_pone_rojo_sin_llamar_al_modelo(self):
+        app = AppTest.from_file(str(RAIZ / "streamlit_app.py"), default_timeout=60)
+        app.session_state["chat_abierto"] = True
+        app.run()
+        with patch.object(cadena, "generar_con_respaldo", AsyncMock(return_value="Hornea a 220 °C")) as proveedor:
+            app.chat_input[0].set_value("¿Cómo hago una pizza?").run()
+        self.assertFalse(app.exception)
+        proveedor.assert_not_called()
         self.assertEqual(self.estado(app), "duda")
-        self.assertEqual(app.session_state["mensajes"][-1]["fuentes"], [])
+        ultimo = app.session_state["mensajes"][-1]
+        self.assertEqual(ultimo["content"], tema.MENSAJE_FUERA_DE_TEMA)
+        self.assertNotIn("fuentes", ultimo)  # sin chips de fichas
+
+    def test_presidente_en_mitad_de_una_conversacion_de_redes(self):
+        app = self.enviar("¿Cómo asigno un puerto a la VLAN 10?")
+        with patch.object(cadena, "generar_con_respaldo", AsyncMock(return_value="Es ...")) as proveedor:
+            app.chat_input[0].set_value("¿Quién es el presidente del Perú?").run()
+        proveedor.assert_not_called()
+        self.assertEqual(app.session_state["mensajes"][-1]["content"], tema.MENSAJE_FUERA_DE_TEMA)
+        self.assertEqual(self.estado(app), "duda")
 
     def test_dato_sensible_pone_rojo_sin_fichas(self):
         app = self.enviar("No llego a 8.8.8.8")
@@ -339,9 +423,9 @@ class ChatStreamlitTests(unittest.TestCase):
     def test_clave_de_ejemplo_del_asistente_no_bloquea_la_siguiente_pregunta(self):
         # Regresión: tras una respuesta con "enable secret ClaveLab123", todo quedaba bloqueado.
         app = self.enviar("¿Cómo configuro SSH?", "Usa: enable secret ClaveLab123 y ssh -l admin 192.168.1.2")
-        proveedor = AsyncMock(return_value="Solo ayudo con redes Cisco.")
+        proveedor = AsyncMock(return_value="Revisa la VLAN de administración.")
         with patch.object(cadena, "generar_con_respaldo", proveedor):
-            app.chat_input[0].set_value("¿Quién es la presidenta del Perú?").run()
+            app.chat_input[0].set_value("¿Y cómo lo compruebo desde la PC?").run()
         self.assertFalse(app.exception)
         self.assertFalse(app.session_state["mensajes"][-1]["bloqueado"])
         proveedor.assert_awaited_once()

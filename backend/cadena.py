@@ -17,6 +17,7 @@ from .llm import MENSAJE_FALLBACK, generar_con_respaldo
 from .prompts import construir_prompt
 from .rag import RagService, formatear_contexto
 from .seguridad import MENSAJE_DATOS_SENSIBLES, contiene_datos_sensibles, validar_entrada
+from .tema import MENSAJE_FUERA_DE_TEMA, es_fuera_de_tema
 
 
 class FichasRetriever(BaseRetriever):
@@ -117,12 +118,22 @@ def _armar_cadena(rag: RagService, detallada: bool) -> Runnable:
     if detallada:
         cadena_rag = preparar | RunnablePassthrough.assign(respuesta=generador) | RunnableLambda(detalle)
         bloqueo = {"respuesta": MENSAJE_DATOS_SENSIBLES, "fuentes": [], "fragmentos": 0, "bloqueado": True}
+        fuera_de_tema = {
+            "respuesta": MENSAJE_FUERA_DE_TEMA, "fuentes": [], "fragmentos": 0,
+            "bloqueado": False, "fuera_de_tema": True,
+        }
     else:
         cadena_rag = preparar | generador
         bloqueo = MENSAJE_DATOS_SENSIBLES
+        fuera_de_tema = MENSAJE_FUERA_DE_TEMA
 
-    # Los datos sensibles se bloquean antes de buscar o llamar a cualquier modelo.
+    def _fuera_de_tema(entrada: dict[str, Any]) -> bool:
+        return es_fuera_de_tema(entrada, lambda pregunta: rag.buscar(pregunta))
+
+    # Los datos sensibles se bloquean antes de buscar o llamar a cualquier modelo; después,
+    # las preguntas que no son de redes reciben una respuesta fija sin llamar al modelo.
     return RunnableLambda(validar_entrada) | RunnableBranch(
         (RunnableLambda(_tiene_datos_sensibles), RunnableLambda(lambda _: bloqueo)),
+        (RunnableLambda(_fuera_de_tema), RunnableLambda(lambda _: fuera_de_tema)),
         cadena_rag,
     )
