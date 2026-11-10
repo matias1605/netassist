@@ -275,6 +275,9 @@ class ApiDiagnosticoTests(unittest.TestCase):
 
 
 class StreamlitDiagnosticoTests(unittest.TestCase):
+    """El análisis de salidas ya no está en la interfaz de Streamlit (se simplificó el laboratorio);
+    su lógica sigue probada por la API. Aquí se comprueba que el laboratorio pide los datos faltantes."""
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -287,27 +290,18 @@ from backend.casos import AlmacenCasos
 from laboratorio_ui import mostrar_laboratorio
 class Cadena:
     async def ainvoke(self, entrada):
-        return "Explicación de SW1"
-mostrar_laboratorio(Cadena(), st.markdown, None, AlmacenCasos("{self.ruta}"))
+        return "Hola, soy Nexo"
+mostrar_laboratorio(Cadena(), AlmacenCasos("{self.ruta}"))
 '''
         return AppTest.from_string(codigo, default_timeout=30).run()
 
-    def test_diagnostico_en_streamlit(self):
+    def test_modelo_faltante_se_pide_antes_de_guardar(self):
         app = self.app()
-        self.assertFalse(any("Analizar salidas" == b.label for b in app.button))
-        caso = AlmacenCasos(self.ruta).guardar_caso(ejemplo_laboratorio())
-        app.session_state["lab_caso_id"] = caso
-        app.run()
-        app.text_area(key="lab_evidencia").set_value(VLAN_PUERTO_EN_DEFAULT).run()
-        next(b for b in app.button if b.label == "Analizar salidas").click().run()
+        app.text_input(key="lab_modelo").set_value("").run()
+        next(b for b in app.button if b.key == "lab_guardar").click().run()
         self.assertFalse(app.exception)
-        self.assertEqual(AlmacenCasos(self.ruta).obtener_diagnostico(caso)["estado"], "con_hallazgos")
-        self.assertTrue(any("Hay discrepancias" in m.value for m in app.markdown))
-        # Una salida repetida se informa sin duplicar la evidencia.
-        app.text_area(key="lab_evidencia").set_value(VLAN_PUERTO_EN_DEFAULT).run()
-        next(b for b in app.button if b.label == "Analizar salidas").click().run()
-        self.assertTrue(any("ya se registró" in w.value for w in app.warning))
-        self.assertEqual(len(AlmacenCasos(self.ruta).listar_evidencias(caso)), 1)
+        self.assertIn("Modelo del switch", app.error[0].value)
+        self.assertEqual(AlmacenCasos(self.ruta).listar_casos(app.session_state["lab_usuario"]), [])
 
 
 if __name__ == "__main__":

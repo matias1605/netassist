@@ -1,0 +1,165 @@
+PROBLEMA: Puerto de acceso asignado a la VLAN equivocada
+SÍNTOMA: Una PC conectada a un puerto no se comunica con los equipos de su VLAN; "show vlan brief" muestra el puerto dentro de otra VLAN (por ejemplo, en la VLAN 1 por defecto).
+CAUSA: El puerto no tiene "switchport access vlan" o se escribió el número de VLAN equivocado. Un puerto sin configurar permanece en la VLAN 1.
+COMANDOS:
+configure terminal
+interface gigabitethernet 0/1
+switchport mode access
+switchport access vlan 10
+end
+show vlan brief
+VERIFICACIÓN: "show vlan brief" debe listar el puerto bajo la VLAN 10. "show interfaces gigabitethernet 0/1 switchport" debe indicar "Access Mode VLAN: 10 (nombre)" y "Operational Mode: static access".
+ADVERTENCIA: Cambiar la VLAN de un puerto desconecta temporalmente al equipo que está conectado. Confirma el nombre exacto del puerto antes de aplicar.
+---
+PROBLEMA: La VLAN no aparece en "show vlan brief"
+SÍNTOMA: Se asignó un puerto a una VLAN, pero la VLAN no figura en la tabla o el puerto no se comunica.
+CAUSA: La VLAN no fue creada con "vlan N" o se escribió el número equivocado. Asignar un puerto a una VLAN inexistente no garantiza que ésta quede creada y con nombre en todos los modelos.
+COMANDOS:
+configure terminal
+vlan 20
+name LABORATORIO
+exit
+end
+show vlan brief
+VERIFICACIÓN: La VLAN 20 debe aparecer con estado "active" y el nombre LABORATORIO, con sus puertos asignados.
+ADVERTENCIA: El nombre de la VLAN no puede contener espacios; usa guion bajo (por ejemplo, LAB_REDES). Respalda la configuración con "copy running-config startup-config".
+---
+PROBLEMA: Dos grupos de equipos deben quedar aislados en el mismo switch
+SÍNTOMA: Los equipos de Administración y de Laboratorio se hacen ping entre sí y se necesita separarlos sin comprar otro switch.
+CAUSA: Todos los puertos están en la VLAN 1 (dominio de broadcast único). Para aislarlos se debe crear una VLAN por grupo y asignar sus puertos de acceso.
+COMANDOS:
+configure terminal
+vlan 10
+name ADMINISTRACION
+vlan 20
+name LABORATORIO
+interface gigabitethernet 0/1
+switchport mode access
+switchport access vlan 10
+interface gigabitethernet 0/2
+switchport mode access
+switchport access vlan 20
+end
+VERIFICACIÓN: "show vlan brief" debe mostrar el puerto 0/1 en la VLAN 10 y el 0/2 en la VLAN 20. Un ping entre PC de VLAN distintas debe fallar mientras no haya un router o interfaz de capa 3 que enrute entre ellas; un ping dentro de la misma VLAN debe responder.
+ADVERTENCIA: Que las PC de VLAN distintas no se vean es el comportamiento esperado de la segmentación. No es una falla.
+---
+PROBLEMA: Ping falla entre PC de la misma VLAN
+SÍNTOMA: Dos PC en la misma VLAN y en la misma subred no se hacen ping, aunque ambas aparecen conectadas.
+CAUSA: Los puertos están en VLAN distintas, uno de los puertos está apagado, las PC tienen máscaras o subredes diferentes, o el firewall del sistema operativo bloquea el ICMP.
+COMANDOS:
+show vlan brief
+show interfaces status
+show mac address-table
+VERIFICACIÓN: Ambos puertos deben estar "connected" y en la misma VLAN. "show mac address-table" debe aprender la dirección MAC de cada PC en su puerto. Revisa que las IP de las PC estén en la misma red y con la misma máscara.
+ADVERTENCIA: Usa direcciones IP de ejemplo (por ejemplo 192.168.10.0/24) y no cambies las del equipo en servicio sin respaldo.
+---
+PROBLEMA: Enlace troncal (trunk) entre dos switches
+SÍNTOMA: Los equipos de la misma VLAN conectados a switches distintos no se comunican.
+CAUSA: El enlace entre switches está en modo acceso (solo lleva una VLAN) o la VLAN no está permitida en el trunk.
+COMANDOS:
+configure terminal
+interface gigabitethernet 0/24
+switchport mode trunk
+switchport trunk allowed vlan 10,20
+end
+show interfaces trunk
+VERIFICACIÓN: "show interfaces trunk" debe listar el puerto en modo "on" con encapsulación 802.1q y las VLAN 10 y 20 como permitidas y activas. Las VLAN deben existir en ambos switches.
+ADVERTENCIA: En algunos modelos el trunk requiere "switchport trunk encapsulation dot1q" antes de "switchport mode trunk"; los Catalyst 2960 usan 802.1q por defecto. Un trunk mal configurado puede cortar el acceso de administración.
+---
+PROBLEMA: Comunicación entre VLAN (router-on-a-stick)
+SÍNTOMA: Las PC de VLAN distintas deben comunicarse, pero el ping entre ellas falla.
+CAUSA: Las VLAN son dominios separados y necesitan un dispositivo de capa 3 para enrutar. Falta una subinterfaz por VLAN en el router con su gateway, o el puerto del switch hacia el router no es un trunk.
+COMANDOS:
+configure terminal
+interface gigabitethernet 0/0
+no shutdown
+interface gigabitethernet 0/0.10
+encapsulation dot1q 10
+ip address 192.168.10.1 255.255.255.0
+interface gigabitethernet 0/0.20
+encapsulation dot1q 20
+ip address 192.168.20.1 255.255.255.0
+end
+VERIFICACIÓN: "show ip interface brief" debe mostrar las subinterfaces up/up. Cada PC debe tener como gateway la IP de su subinterfaz. Un ping entre PC de VLAN distintas debe responder y "show ip route" debe mostrar las redes conectadas.
+ADVERTENCIA: Este diseño usa trunk entre el switch y el router. Respalda la configuración antes de aplicarlo en un equipo en servicio.
+---
+PROBLEMA: Puerto en estado err-disabled
+SÍNTOMA: "show interfaces status" muestra el puerto como "err-disabled" y el equipo conectado no tiene enlace.
+CAUSA: El switch apagó el puerto por una violación de seguridad (port-security), un bucle (BPDU guard) u otro evento de protección.
+COMANDOS:
+show interfaces status err-disabled
+configure terminal
+interface gigabitethernet 0/3
+shutdown
+no shutdown
+end
+VERIFICACIÓN: Tras el "shutdown" y "no shutdown" el puerto debe volver a "connected". Si vuelve a caer, corrige primero la causa (otro equipo conectado, bucle de cable, puerto de seguridad).
+ADVERTENCIA: Reactivar el puerto sin corregir la causa solo repite la falla. Revisa antes quién o qué se conectó a ese puerto.
+---
+PROBLEMA: Seguridad de puerto (port-security)
+SÍNTOMA: Se quiere que un puerto acepte solo una PC concreta y bloquee otras que se conecten.
+CAUSA: Por defecto cualquier equipo puede conectarse a un puerto de acceso.
+COMANDOS:
+configure terminal
+interface gigabitethernet 0/2
+switchport mode access
+switchport port-security
+switchport port-security maximum 1
+switchport port-security mac-address sticky
+switchport port-security violation shutdown
+end
+show port-security interface gigabitethernet 0/2
+VERIFICACIÓN: "show port-security interface" debe mostrar el estado "Secure-up", el máximo de 1 y la MAC aprendida. Conectar otra PC debe dejar el puerto en "err-disabled".
+ADVERTENCIA: El puerto debe estar en modo access antes de activar port-security. Una violación apaga el puerto, así que prueba primero en el laboratorio.
+---
+PROBLEMA: Desajuste de velocidad o duplex
+SÍNTOMA: El enlace está activo pero la red es muy lenta; "show interfaces" muestra muchos errores de CRC, colisiones o "late collisions".
+CAUSA: Un extremo está en autonegociación y el otro fijo en velocidad o duplex distintos (duplex mismatch).
+COMANDOS:
+show interfaces fastethernet 0/1
+configure terminal
+interface fastethernet 0/1
+speed auto
+duplex auto
+end
+VERIFICACIÓN: "show interfaces" debe mostrar la misma velocidad y duplex en ambos extremos, y los contadores de errores deben dejar de crecer.
+ADVERTENCIA: Lo recomendable es dejar ambos extremos en autonegociación. Si fijas valores, fíjalos igual en los dos lados.
+---
+PROBLEMA: Interfaz en estado down/down
+SÍNTOMA: "show ip interface brief" muestra la interfaz como "down" y el protocolo como "down" (no administrativamente).
+CAUSA: Problema físico: cable desconectado o dañado, tipo de cable incorrecto, puerto del otro extremo apagado o equipo conectado apagado.
+COMANDOS:
+show interfaces gigabitethernet 0/1
+show ip interface brief
+VERIFICACIÓN: Revisa el cableado y que el otro extremo esté encendido y habilitado. La interfaz debe pasar a "up/up" cuando el enlace físico se restablece.
+ADVERTENCIA: Antes de reemplazar cables o equipos en producción, confirma con el docente o el técnico responsable.
+---
+PROBLEMA: Interfaz up/down (línea activa, protocolo caído)
+SÍNTOMA: "show ip interface brief" muestra la interfaz en "up" pero el protocolo en "down".
+CAUSA: En enlaces seriales, es habitual una encapsulación distinta en cada extremo o falta de reloj (clock rate) en el extremo DCE. En Ethernet puede indicar un problema de negociación.
+COMANDOS:
+show interfaces serial 0/0/0
+configure terminal
+interface serial 0/0/0
+clock rate 64000
+end
+VERIFICACIÓN: Ambos extremos deben usar la misma encapsulación y, en el extremo DCE, tener "clock rate". La interfaz debe pasar a up/up.
+ADVERTENCIA: "clock rate" solo se configura en el extremo DCE del cable. Aplicarlo en el DTE no tiene efecto.
+---
+PROBLEMA: Tabla de direcciones MAC
+SÍNTOMA: Se quiere saber en qué puerto está conectada una PC o por qué un equipo no es alcanzable.
+CAUSA: El switch reenvía tramas según su tabla MAC; si no aprendió la MAC del equipo, la trama se inunda por todos los puertos de la VLAN.
+COMANDOS:
+show mac address-table
+show mac address-table interface gigabitethernet 0/1
+VERIFICACIÓN: La MAC de la PC debe aparecer en el puerto y la VLAN esperados. Si no aparece, el equipo no ha enviado tráfico o el enlace está caído.
+ADVERTENCIA: La tabla se llena al generar tráfico; haz un ping desde la PC antes de consultarla.
+---
+PROBLEMA: STP bloquea un puerto
+SÍNTOMA: Un puerto conectado entre switches está conectado, pero no reenvía tráfico; "show spanning-tree" lo muestra en estado "BLK" o "Altn".
+CAUSA: El protocolo Spanning Tree desactiva uno de los enlaces redundantes para evitar bucles en la red de capa 2.
+COMANDOS:
+show spanning-tree
+show spanning-tree vlan 10
+VERIFICACIÓN: En la salida identifica el puente raíz y el rol de cada puerto (Root, Designated, Alternate). Un puerto Alternate en estado bloqueo es normal cuando hay un enlace redundante.
+ADVERTENCIA: No desactives STP para "solucionar" el bloqueo: se pueden formar bucles que tumban toda la red.

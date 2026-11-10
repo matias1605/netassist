@@ -140,7 +140,9 @@ async def llamar_llm(
     """Prueba Gemini primero, pasa a Groq ante un error y siempre devuelve texto."""
     from .seguridad import validar_entrada, contiene_datos_sensibles, MENSAJE_DATOS_SENSIBLES
     validar_entrada({"mensajes": mensajes, "imagen": imagen})
-    if any(contiene_datos_sensibles(m["content"]) for m in mensajes) or contiene_datos_sensibles(contexto_rag):
+    # Solo se revisa lo que escribe el usuario: el contexto RAG sale de las fichas propias de docs/,
+    # que incluyen claves de ejemplo (enable secret ClaveLab123) y bloqueaban preguntas legítimas.
+    if any(contiene_datos_sensibles(m["content"]) for m in mensajes):
         return MENSAJE_DATOS_SENSIBLES
     return await generar_con_respaldo(mensajes, construir_prompt(contexto_rag, SUPPORT_CONTACT), imagen)
 
@@ -150,7 +152,8 @@ async def generar_con_respaldo(mensajes, system_prompt, imagen=None) -> str:
     from time import monotonic
     from .seguridad import validar_entrada, contiene_datos_sensibles, MENSAJE_DATOS_SENSIBLES
     validar_entrada({"mensajes": mensajes, "imagen": imagen})
-    if any(contiene_datos_sensibles(m["content"]) for m in mensajes) or contiene_datos_sensibles(system_prompt):
+    # El system prompt lo arma la app con las fichas de docs/ (no contiene datos del usuario).
+    if any(contiene_datos_sensibles(m["content"]) for m in mensajes):
         return MENSAJE_DATOS_SENSIBLES
     for proveedor, llamada in (("gemini", _llamar_gemini), ("groq", _llamar_groq)):
         inicio = monotonic()

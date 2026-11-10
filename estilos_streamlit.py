@@ -4,6 +4,8 @@ Solo presentación: no toca la lógica de NetAssist (RAG, cadena, casos ni valid
 """
 
 import base64
+import html
+from pathlib import Path
 
 NEXO_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
 <g stroke="#1b2c44" stroke-width="3" stroke-linecap="round">
@@ -29,8 +31,34 @@ NEXO_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
 
 NEXO_URI = "data:image/svg+xml;base64," + base64.b64encode(NEXO_SVG.encode("utf-8")).decode("ascii")
 
+# Versión animada de Nexo (como en la web): flota, parpadea, la luz de la antena late y saluda con un brazo.
+# Se inserta como imagen SVG; las animaciones CSS internas se ejecutan también dentro de <img> y fondos.
+NEXO_ANIM_SVG = NEXO_SVG.replace(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><style>'
+    ".c{animation:f 3.2s ease-in-out infinite;transform-origin:60px 110px}"
+    ".o{animation:p 4.5s infinite;transform-origin:60px 51px}"
+    ".l{animation:l 2.4s ease-in-out infinite}"
+    ".b{animation:s 6s ease-in-out infinite;transform-origin:92px 92px}"
+    "@keyframes f{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}"
+    "@keyframes p{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}"
+    "@keyframes l{0%,100%{opacity:1}50%{opacity:.4}}"
+    "@keyframes s{0%,80%,100%{transform:rotate(0)}85%{transform:rotate(-40deg)}90%{transform:rotate(0)}95%{transform:rotate(-40deg)}}"
+    "</style><g class=\"c\">",
+).replace("</svg>", "</g></svg>")
+NEXO_ANIM_SVG = (
+    NEXO_ANIM_SVG
+    .replace('<circle cx="60" cy="8" r="5" fill="#ffcf4a" stroke-width="2.5"/>', '<circle class="l" cx="60" cy="8" r="5" fill="#ffcf4a" stroke-width="2.5"/>')
+    .replace('<rect x="86" y="90" width="12" height="20" rx="6" fill="#3fbfb1"/>', '<rect class="b" x="86" y="90" width="12" height="20" rx="6" fill="#3fbfb1"/>')
+    .replace('<ellipse cx="47" cy="51" rx="6" ry="7.5" fill="#59f0de"/>', '<ellipse class="o" cx="47" cy="51" rx="6" ry="7.5" fill="#59f0de"/>')
+    .replace('<ellipse cx="73" cy="51" rx="6" ry="7.5" fill="#59f0de"/>', '<ellipse class="o" cx="73" cy="51" rx="6" ry="7.5" fill="#59f0de"/>')
+)
+NEXO_ANIM_URI = "data:image/svg+xml;base64," + base64.b64encode(NEXO_ANIM_SVG.encode("utf-8")).decode("ascii")
+
 _CSS = """
 <style>
+  @property --nx-estado { syntax: "\\3c color\\3e "; inherits: true; initial-value: #3fd3c3; }
+  @property --nx-estado-2 { syntax: "\\3c color\\3e "; inherits: true; initial-value: #2a7fd6; }
   :root {
     --navy: #0f1a2b; --blue: #14958a; --blue-dark: #0f7a71; --teal-soft: #e6f6f4;
     --ink: #1d2b3b; --muted: #6b7a8c; --line: #e3e9f0; --canvas: #f2f5f8;
@@ -45,9 +73,7 @@ _CSS = """
   .sb { display: flex; flex-direction: column; gap: 6px; min-height: calc(100vh - 40px); color: #c9d4e2; }
   .sb a { text-decoration: none; }
   .sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 18px; margin-bottom: 8px; border-bottom: 1px solid #1f2f47; color: inherit; }
-  .sb-mark { display: grid; place-items: center; flex: 0 0 auto; width: 40px; height: 40px; border-radius: 12px; border: 1px solid #1f6b66; background: #12353a; color: #3fd3c3; font-weight: 800; font-size: 19px; }
-  .sb-mark i { font-style: normal; color: #59f0de; }
-  .sb-brand strong, .sb-brand small { display: block; }
+  .sb-mark { display: block; flex: 0 0 auto; width: 42px; height: 42px; border-radius: 12px; filter: drop-shadow(0 6px 14px rgb(23 165 151 / 35%)); }  .sb-brand strong, .sb-brand small { display: block; }
   .sb-brand strong { color: #fff; font-size: 20px; letter-spacing: -.02em; }
   .sb-brand small { margin-top: 3px; color: #7d8ca2; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
   .sb-label { margin: 14px 8px 8px; color: #66768d; font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
@@ -158,16 +184,41 @@ _CSS = """
 
   /* Ventana del chat */
   .st-key-ventana-chat {
-    position: fixed; right: 24px; bottom: 88px; z-index: 1000;
-    width: min(580px, calc(100vw - 32px)) !important; max-height: calc(100vh - 112px); overflow-y: auto;
+    position: fixed; right: 24px; bottom: 88px; z-index: 999995;
+    width: min(580px, calc(100vw - 32px)) !important; max-height: calc(100dvh - 160px); overflow: hidden;
+    flex-wrap: nowrap !important;
     background: #f4f8fa; border-radius: 24px; padding: 0; gap: 0; border: 1px solid rgb(15 26 43 / 8%);
     box-shadow: 0 30px 80px rgb(10 25 45 / 26%), 0 4px 14px rgb(10 25 45 / 8%);
   }
   .st-key-cabecera-chat {
-    position: relative; overflow: hidden; padding: 16px 16px 16px 20px; border-radius: 24px 24px 0 0;
-    background: radial-gradient(circle at 100% 0, rgb(63 211 195 / 35%), transparent 55%),
-                linear-gradient(135deg, #0f1a2b 0%, #14304a 60%, #0f6f68 130%);
+    position: relative; overflow: hidden; flex: 0 0 auto; padding: 16px 16px 16px 20px; border-radius: 24px 24px 0 0;
+    background: linear-gradient(120deg, #0f1a2b 0%, #14304a 30%,
+                color-mix(in srgb, var(--nx-estado) 42%, #14304a) 62%, #14304a 100%);
+    background-size: 300% 300%; animation: nx-fluir 14s ease-in-out infinite;
+    transition: --nx-estado .9s ease, --nx-estado-2 .9s ease;
   }
+  .st-key-cabecera-chat::before, .st-key-cabecera-chat::after {
+    content: ""; position: absolute; pointer-events: none; border-radius: 50%; filter: blur(8px);
+  }
+  .st-key-cabecera-chat::before {
+    width: 340px; height: 340px; right: -110px; top: -190px;
+    background: radial-gradient(circle, var(--nx-estado), transparent 65%); opacity: .7;
+    animation: nx-latido 6s ease-in-out infinite;
+  }
+  .st-key-cabecera-chat::after {
+    width: 260px; height: 260px; left: 30%; bottom: -210px;
+    background: radial-gradient(circle, var(--nx-estado-2), transparent 65%); opacity: .35;
+    animation: nx-latido 8s ease-in-out infinite reverse;
+  }
+  .st-key-cabecera-chat > * { position: relative; z-index: 1; }
+  .st-key-cabecera-chat [data-testid="stElementContainer"]:has(.nx-estado) { display: none; }
+  .st-key-ventana-chat:has(.nx-estado[data-estado="pensando"]) .st-key-cabecera-chat { --nx-estado: #f5b83d; --nx-estado-2: #ffd36b; }
+  .st-key-ventana-chat:has(.nx-estado[data-estado="pensando"]) .st-key-cabecera-chat::before { animation-duration: 1.6s; }
+  .st-key-ventana-chat:has(.nx-estado[data-estado="pensando"]) .st-key-cabecera-chat::after { animation-duration: 2.2s; }
+  .st-key-ventana-chat:has(.nx-estado[data-estado="ok"]) .st-key-cabecera-chat { --nx-estado: #3ee67a; --nx-estado-2: #3fd3c3; }
+  .st-key-ventana-chat:has(.nx-estado[data-estado="duda"]) .st-key-cabecera-chat { --nx-estado: #ff5a5f; --nx-estado-2: #ff8a65; }
+  @keyframes nx-fluir { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+  @keyframes nx-latido { 0%, 100% { transform: scale(1); opacity: .55; } 50% { transform: scale(1.15); opacity: .85; } }
   .st-key-cabecera-chat p { color: #fff; margin: 0; line-height: 1.3; font-size: 20px; letter-spacing: -.02em; }
   .st-key-cabecera-chat .nx-cab { display: flex; align-items: center; gap: 12px; }
   .st-key-cabecera-chat .nx-cab img { width: 46px; height: 46px; border-radius: 14px; padding: 3px; background: #fff; }
@@ -177,13 +228,29 @@ _CSS = """
     display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px 3px 7px; border-radius: 999px;
     color: #bff7ef; background: rgb(255 255 255 / 10%); font-size: 11px; font-weight: 600;
   }
-  .st-key-cabecera-chat .nx-en-linea i { width: 7px; height: 7px; border-radius: 50%; background: #3ee6a0; box-shadow: 0 0 0 3px rgb(62 230 160 / 22%); }
+  .st-key-cabecera-chat .nx-en-linea i {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--nx-estado);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--nx-estado) 25%, transparent); transition: background .6s;
+  }
+  .st-key-cabecera-chat .nx-en-linea b { font-weight: 600; }
+  .st-key-cabecera-chat .nx-en-linea b::after { content: "En línea"; }
+  .st-key-ventana-chat:has(.nx-estado[data-estado="pensando"]) .nx-en-linea b::after { content: "Pensando…"; }
+  .st-key-ventana-chat:has(.nx-estado[data-estado="pensando"]) .nx-en-linea i { animation: nx-parpadeo 1s ease-in-out infinite; }
+  .st-key-ventana-chat:has(.nx-estado[data-estado="ok"]) .nx-en-linea b::after { content: "Respuesta encontrada"; }
+  .st-key-ventana-chat:has(.nx-estado[data-estado="duda"]) .nx-en-linea b::after { content: "No te entendí bien"; }
+  @keyframes nx-parpadeo { 50% { opacity: .3; } }
+  .nx-fichas { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 2px; font-size: 11.5px; color: #6b7c8f; }
+  .nx-fichas span { padding: 2px 9px; border-radius: 999px; background: #eef7f6; border: 1px solid #d3ebe8; color: #0f6f68; font-weight: 600; }
+  .nx-fichas.nx-sin-fichas span { background: #fff4f4; border-color: #f6d0d0; color: #b4363a; }
   .st-key-cabecera-chat button {
     background: rgba(255, 255, 255, .12); color: #fff; border: 1px solid rgba(255, 255, 255, .45);
     border-radius: 999px; padding: 2px 12px; min-height: 0; font-size: 13px;
   }
   .st-key-cabecera-chat button:hover { background: rgba(255, 255, 255, .25); color: #fff; border-color: #fff; }
+  .st-key-ventana-chat > div:has(> .st-key-cuerpo-chat) { flex: 1 1 420px !important; min-height: 120px; display: flex; flex-direction: column; }
+  .st-key-ventana-chat > div:not(:has(> .st-key-cuerpo-chat)) { flex: 0 0 auto !important; }
   .st-key-cuerpo-chat {
+    flex: 1 1 auto; min-height: 0; height: auto !important; max-height: 420px;
     padding: 16px 14px 6px;
     background: radial-gradient(rgb(20 149 138 / 9%) 1px, transparent 1px) 0 0 / 18px 18px, linear-gradient(180deg, #f4f8fa, #eef4f7);
   }
@@ -192,12 +259,17 @@ _CSS = """
     background: #fff; border: 1px solid #e2eaf1; box-shadow: 0 2px 10px rgb(15 26 43 / 5%);
   }
   .st-key-cuerpo-chat [data-testid="stChatMessage"]:has(.msg-usuario) {
-    flex-direction: row-reverse; margin-left: 40px; border-color: transparent; border-radius: 18px 6px 18px 18px;
+    flex-direction: row-reverse; width: fit-content; max-width: calc(100% - 40px); margin-left: auto;
+    border-color: transparent; border-radius: 18px 6px 18px 18px;
     background: linear-gradient(135deg, #17a597, #0f7a71); box-shadow: 0 6px 16px rgb(20 149 138 / 25%);
   }
   .st-key-cuerpo-chat [data-testid="stChatMessage"]:has(.msg-usuario) :is(p, li, strong, em) { color: #fff; }
   .st-key-cuerpo-chat [data-testid="stChatMessage"]:has(.msg-usuario) [data-testid^="stChatMessageAvatar"] { display: none; }
   .st-key-cuerpo-chat [data-testid="stChatMessage"]:not(:has(.msg-usuario)) { margin-right: 12px; }
+  .st-key-cuerpo-chat [data-testid^="stChatMessageAvatar"],
+  .st-key-cuerpo-chat [data-testid="stChatMessage"] > div:not([data-testid="stChatMessageContent"]) { display: none; }
+  .st-key-cuerpo-chat [data-testid="stChatMessage"] { box-sizing: border-box; max-width: 100%; }
+  .st-key-cuerpo-chat { overflow-x: hidden; }
   .st-key-cuerpo-chat [data-testid^="stChatMessageAvatar"] img { border-radius: 12px; background: #fff; padding: 2px; }
   .st-key-cuerpo-chat .stElementContainer:has(.msg-usuario) { display: none; }
   .st-key-cuerpo-chat [data-testid="stChatMessageContent"] { min-width: 0; }
@@ -207,6 +279,18 @@ _CSS = """
   .st-key-cuerpo-chat [data-testid="stImage"], .st-key-cuerpo-chat [data-testid="stImageContainer"] { margin-left: auto; margin-right: auto; }
   .st-key-cuerpo-chat img { border-radius: 10px; }
   .st-key-cuerpo-chat iframe { display: block; margin: 0 auto; }
+  .st-key-sugerencias-chat { gap: 4px !important; padding: 0 0 8px; }
+  .st-key-sugerencias-chat p.nx-sug-intro { margin: 0; color: #6b7c8f; font-size: 11.5px; font-weight: 600; letter-spacing: .02em; }
+  .st-key-chips-sugerencias {
+    flex-wrap: wrap !important; gap: 6px !important; padding: 2px 1px 0;
+  }
+  .st-key-chips-sugerencias > div { flex: 0 0 auto !important; width: auto !important; }
+  .st-key-sugerencias-chat button {
+    min-height: 0 !important; height: 28px; padding: 0 11px !important; border: 1px solid #cfe5e2; border-radius: 999px; color: #0f6f68;
+    background: #f3fbfa; font-weight: 600; white-space: nowrap; box-shadow: none; line-height: 1.3;
+  }
+  .st-key-sugerencias-chat button p { font-size: 12.5px; }
+  .st-key-sugerencias-chat button:hover { color: #0b5a54; border-color: #7fcfc6; background: #e6f7f5; }
   .st-key-pie-chat { padding: 12px 16px 14px; border-top: 1px solid var(--line); background: #fff; border-radius: 0 0 24px 24px; }
   .st-key-pie-chat [data-testid="stChatInput"] > div { border-radius: 18px; border-color: #d9e1eb; background: #f7fafc; }
   .st-key-pie-chat [data-testid="stChatInput"] > div:focus-within { border-color: #7fcfc6; box-shadow: 0 0 0 4px rgb(20 149 138 / 12%); }
@@ -218,35 +302,72 @@ _CSS = """
     .st-key-boton-burbuja-cerrada button::before { display: none; }
     .st-key-lab-form, .st-key-lab-practica { padding: 18px 14px; } .lab-sello { display: none; }
   }
-  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
-""".replace("__NEXO__", NEXO_URI)
+""".replace("__NEXO__", NEXO_ANIM_URI)
 
 
 def estilos() -> str:
     return _CSS
 
 
+# Logo del panel lateral (assets/logo.png). st.html elimina las etiquetas <svg>, así que va como imagen.
+LOGO_URI = "data:image/png;base64," + base64.b64encode(
+    (Path(__file__).parent / "assets" / "logo.png").read_bytes()
+).decode("ascii")
+
+
 def panel_izquierdo(contacto: str) -> str:
     """Navegación lateral, igual que la de la web."""
     return (
         '<div class="sb">'
-        '<a class="sb-brand" href="#laboratorio-de-redes-y-conectividad-i"><span class="sb-mark">N<i>.</i></span>'
+        f'<a class="sb-brand" href="#laboratorio-de-redes-y-conectividad-i"><img class="sb-mark" src="{LOGO_URI}" alt="NetAssist">'
         "<span><strong>NetAssist</strong><small>Laboratorio de redes</small></span></a>"
         '<nav class="sb-nav"><p class="sb-label">Espacio de trabajo</p>'
-        '<a href="#laboratorio-de-redes-y-conectividad-i"><span class="sb-ico">◈</span>Presentación</a>'
-        '<a class="activo" href="#tu-proxima-red-empieza-aqui"><span class="sb-ico">▦</span>Laboratorio<span class="sb-dot"></span></a>'
-        '<a href="#practicas"><span class="sb-ico">▤</span>Mis prácticas</a></nav>'
-        f'<div class="sb-foot"><p>¿Necesitas ayuda?</p><span>{contacto}</span></div></div>'
+        '<a class="activo" href="#tu-proxima-red-empieza-aqui"><span class="sb-ico">▦</span>Laboratorio<span class="sb-dot"></span></a></nav>'
+        "</div>"
     )
 
 
 def cabecera_chat() -> str:
     return (
-        f'<div class="nx-cab"><img src="{NEXO_URI}" alt="">'
-        '<div><strong>NetAssist <span class="nx-en-linea"><i></i>En línea</span></strong>'
+        f'<div class="nx-cab"><img src="{NEXO_ANIM_URI}" alt="">'
+        '<div><strong>NetAssist <span class="nx-en-linea"><i></i><b></b></span></strong>'
         "<small>Soporte de redes Cisco IOS</small></div></div>"
     )
+
+
+ESTADOS_CHAT = {"listo", "pensando", "ok", "duda"}
+
+
+def marca_estado(estado: str) -> str:
+    """Marca invisible que el CSS lee con :has() para colorear la cabecera del chat."""
+    estado = estado if estado in ESTADOS_CHAT else "listo"
+    return f'<span class="nx-estado" data-estado="{estado}"></span>'
+
+
+NOMBRES_FICHAS = {
+    "basico": "Básico",
+    "vlan_switching": "VLAN y switching",
+    "enrutamiento_servicios": "Enrutamiento y servicios",
+    "gestion_seguridad": "Gestión y seguridad",
+}
+
+
+def _nombre_ficha(archivo: str) -> str:
+    """cisco_ios_vlan_switching.txt -> VLAN y switching (o el nombre del archivo legible)."""
+    clave = archivo.replace("\\", "/").rsplit("/", 1)[-1].rsplit(".", 1)[0].removeprefix("cisco_ios_")
+    nombre = NOMBRES_FICHAS.get(clave, clave.replace("_", " "))
+    return nombre[:1].upper() + nombre[1:]
+
+
+def fichas_consultadas(fuentes: list[str]) -> str:
+    """Chips con las fichas en las que se apoyó la respuesta (o aviso si no hubo ninguna)."""
+    if not fuentes:
+        return ('<div class="nx-fichas nx-sin-fichas"><span>Sin fichas relacionadas</span>'
+                "Respuesta general: revisa o reformula tu pregunta.</div>")
+    chips = "".join(f"<span>{html.escape(_nombre_ficha(f))}</span>" for f in fuentes)
+    return f'<div class="nx-fichas">Fichas consultadas: {chips}</div>'
 
 
 ENCABEZADO_LAB = (

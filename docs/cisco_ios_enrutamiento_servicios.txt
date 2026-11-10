@@ -1,0 +1,139 @@
+PROBLEMA: Host sin gateway o con gateway incorrecto
+SÍNTOMA: La PC se comunica con su misma red pero no con otras redes; "ping" a la IP del gateway falla o no hay gateway configurado.
+CAUSA: El gateway predeterminado de la PC está vacío, es incorrecto o no pertenece a su subred.
+COMANDOS:
+ipconfig
+ping 192.168.1.1
+VERIFICACIÓN: El gateway debe ser la IP de la interfaz del router en esa subred (por ejemplo 192.168.1.1) y debe responder al ping. Tras corregirlo, el ping a otra red debe funcionar si el router tiene ruta.
+ADVERTENCIA: En Packet Tracer el gateway se edita en IP Configuration de la PC. Usa direcciones privadas o de documentación.
+---
+PROBLEMA: Máscara de subred incorrecta
+SÍNTOMA: Algunos equipos de la misma red se alcanzan y otros no; parece una falla intermitente según la dirección.
+CAUSA: Una máscara distinta en un host cambia su idea de qué direcciones son locales, de modo que envía al gateway tráfico que debería ser directo o viceversa.
+COMANDOS:
+ipconfig
+show ip interface brief
+VERIFICACIÓN: Todos los equipos de una misma red deben compartir la máscara (por ejemplo 255.255.255.0). La IP y la máscara del host deben corresponder con la subred de la interfaz del router.
+ADVERTENCIA: Antes de cambiar el direccionamiento de un equipo en servicio, confirma el plan de direcciones y respalda la configuración.
+---
+PROBLEMA: Asignar IP a una interfaz de router
+SÍNTOMA: La interfaz del router no tiene dirección y las PC de esa red no pueden usarlo como gateway.
+CAUSA: La interfaz no está configurada con IP o está apagada.
+COMANDOS:
+configure terminal
+interface gigabitethernet 0/0
+ip address 192.168.1.1 255.255.255.0
+no shutdown
+end
+show ip interface brief
+VERIFICACIÓN: "show ip interface brief" debe mostrar la IP y el estado up/up. Las PC de esa red deben poder hacer ping a 192.168.1.1.
+ADVERTENCIA: Dos interfaces no pueden compartir la misma subred. Cambiar la IP de la interfaz de administración puede cortar tu sesión remota.
+---
+PROBLEMA: Ruta predeterminada (default route)
+SÍNTOMA: Los equipos de la red interna no llegan a Internet ni a redes que el router no conoce.
+CAUSA: El router no tiene una ruta por defecto hacia el siguiente salto.
+COMANDOS:
+configure terminal
+ip route 0.0.0.0 0.0.0.0 203.0.113.1
+end
+show ip route
+VERIFICACIÓN: "show ip route" debe mostrar "S*" con la ruta 0.0.0.0/0 y el siguiente salto. Un ping a una dirección externa debe responder si el resto del camino está bien.
+ADVERTENCIA: Usa direcciones de documentación como 203.0.113.1. El siguiente salto debe ser alcanzable directamente por una interfaz.
+---
+PROBLEMA: Tabla de rutas: cómo leerla
+SÍNTOMA: No está claro por qué un router elige un camino o no tiene ruta a una red.
+CAUSA: La salida de "show ip route" usa códigos que indican el origen de cada ruta.
+COMANDOS:
+show ip route
+show ip route 192.168.2.0
+VERIFICACIÓN: C significa red conectada directamente, L es la IP local de la interfaz, S es ruta estática, S* es ruta estática predeterminada, O es OSPF. Si la red destino no aparece, el router no sabe cómo llegar.
+ADVERTENCIA: Una ruta presente no garantiza que el siguiente salto responda; confirma con ping al siguiente salto.
+---
+PROBLEMA: Configuración básica de OSPF
+SÍNTOMA: Los routers no intercambian rutas automáticamente o "show ip route" no muestra entradas "O".
+CAUSA: OSPF no está habilitado en las interfaces correctas, las áreas no coinciden o hay interfaces pasivas donde no corresponde.
+COMANDOS:
+configure terminal
+router ospf 1
+network 192.168.1.0 0.0.0.255 area 0
+network 10.0.0.0 0.0.0.3 area 0
+end
+show ip ospf neighbor
+VERIFICACIÓN: "show ip ospf neighbor" debe mostrar vecinos en estado FULL. "show ip route" debe incluir rutas marcadas con "O". Las máscaras wildcard deben ser el inverso de la máscara de red.
+ADVERTENCIA: Los routers vecinos deben coincidir en área y temporizadores. Aplica esto solo en el laboratorio hasta confirmar el diseño.
+---
+PROBLEMA: DHCP no entrega direcciones
+SÍNTOMA: Las PC muestran una dirección 169.254.x.x (APIPA) o no obtienen IP automáticamente.
+CAUSA: El router o servidor no tiene un pool DHCP, el pool está agotado, no alcanza a las PC (falta ip helper-address en otra VLAN) o el puerto está en la VLAN equivocada.
+COMANDOS:
+configure terminal
+ip dhcp excluded-address 192.168.10.1 192.168.10.10
+ip dhcp pool LAN10
+network 192.168.10.0 255.255.255.0
+default-router 192.168.10.1
+dns-server 192.0.2.53
+end
+show ip dhcp binding
+VERIFICACIÓN: "show ip dhcp binding" debe listar las direcciones asignadas. La PC debe recibir IP, máscara, gateway y DNS del pool.
+ADVERTENCIA: Excluye antes las direcciones fijas (gateway, servidores) para no duplicar IP. No uses rangos reales de producción en el laboratorio.
+---
+PROBLEMA: DHCP desde otra VLAN o subred (ip helper-address)
+SÍNTOMA: El servidor DHCP está en otra red y las PC de una VLAN no reciben dirección.
+CAUSA: Las peticiones DHCP son broadcast y no cruzan el router sin un relé.
+COMANDOS:
+configure terminal
+interface gigabitethernet 0/0.10
+ip helper-address 192.168.100.5
+end
+show running-config interface gigabitethernet 0/0.10
+VERIFICACIÓN: La interfaz debe mostrar el "ip helper-address" hacia el servidor DHCP. La PC debe recibir su configuración tras renovar la IP.
+ADVERTENCIA: El servidor debe tener un pool para la subred de cada VLAN y una ruta de regreso.
+---
+PROBLEMA: Acceso a Internet con NAT (PAT)
+SÍNTOMA: Los equipos de la red privada no navegan por Internet o la traducción no ocurre.
+CAUSA: Faltan las interfaces marcadas como inside/outside, la lista de acceso que define qué direcciones se traducen, o la regla de NAT.
+COMANDOS:
+configure terminal
+access-list 1 permit 192.168.1.0 0.0.0.255
+interface gigabitethernet 0/0
+ip nat inside
+interface gigabitethernet 0/1
+ip nat outside
+exit
+ip nat inside source list 1 interface gigabitethernet 0/1 overload
+end
+show ip nat translations
+VERIFICACIÓN: "show ip nat translations" debe mostrar las traducciones de las PC internas al generar tráfico. "show ip nat statistics" debe mostrar aciertos (hits).
+ADVERTENCIA: Marcar mal la interfaz inside/outside deja sin salida a toda la red. Usa direcciones de documentación y respalda la configuración.
+---
+PROBLEMA: Lista de control de acceso (ACL) estándar
+SÍNTOMA: Se necesita bloquear el tráfico de un host o una red concreta hacia otra parte de la red.
+CAUSA: Sin ACL todo el tráfico se permite. Una ACL estándar filtra solo por dirección de origen.
+COMANDOS:
+configure terminal
+access-list 10 deny 192.168.20.0 0.0.0.255
+access-list 10 permit any
+interface gigabitethernet 0/0
+ip access-group 10 out
+end
+show access-lists
+VERIFICACIÓN: "show access-lists" debe mostrar las líneas con contadores de coincidencias. El tráfico de la red 192.168.20.0 debe quedar bloqueado y el resto debe pasar.
+ADVERTENCIA: Toda ACL termina con un "deny any" implícito. Si olvidas "permit any" se bloquea todo el tráfico. Coloca la ACL estándar lo más cerca posible del destino y prueba en el laboratorio.
+---
+PROBLEMA: ACL que bloquea el tráfico de forma inesperada
+SÍNTOMA: Un servicio o un ping dejó de funcionar tras aplicar una ACL.
+CAUSA: El orden de las líneas es incorrecto, falta un permit o la ACL está aplicada en la interfaz o el sentido (in/out) equivocados.
+COMANDOS:
+show access-lists
+show ip interface gigabitethernet 0/0
+VERIFICACIÓN: En "show ip interface" revisa "Inbound access list" y "Outbound access list". En "show access-lists" mira los contadores para ver qué línea coincide.
+ADVERTENCIA: Si te quedas sin acceso, quita la ACL de la interfaz con "no ip access-group". Evita modificarla en un equipo en servicio sin respaldo.
+---
+PROBLEMA: Probar la ruta con traceroute
+SÍNTOMA: El ping falla y no se sabe en qué salto se pierde el tráfico.
+CAUSA: Un router intermedio no tiene ruta, la bloquea una ACL o una interfaz está caída.
+COMANDOS:
+traceroute 192.168.2.10
+ping 192.168.1.1
+VERIFICACIÓN: El último salto que responde indica hasta dónde llega el tráfico; el problema está en el siguiente. En Windows y Packet Tracer el comando de la PC es "tracert".
+ADVERTENCIA: Algunos equipos no responden a ICMP por seguridad; un salto sin respuesta no siempre es una falla.

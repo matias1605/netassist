@@ -19,9 +19,10 @@ MENSAJE_DATOS_SENSIBLES = (
     "en todos los turnos, o inicia una conversación nueva. No se envió al proveedor."
 )
 # Se bloquean valores, no preguntas conceptuales sobre estos comandos.
+OCULTO = "[oculto]"
 _CREDENCIAL = re.compile(
     r"\b(?:password|secret|contrase(?:ña|na)|token|api[_-]?key|authorization|community)"
-    r"\s*(?:[:=]\s*\S+|\s+(?:es\s+|is\s+)?(?![?¿]|de\b|en\b|para\b)\S+)", re.I
+    r"\s*(?:[:=]\s*(?!\[oculto\](?!\S))\S+|\s+(?:es\s+|is\s+)?(?![?¿]|de\b|en\b|para\b|\[oculto\](?!\S))\S+)", re.I
 )
 _IP = re.compile(r"(?<![\w:])(?:[0-9a-fA-F]*:){2,}[0-9a-fA-F:.]+|\b(?:\d{1,3}\.){3}\d{1,3}\b")
 _REDES_LAB = tuple(ipaddress.ip_network(red) for red in (
@@ -31,18 +32,34 @@ _REDES_LAB = tuple(ipaddress.ip_network(red) for red in (
 ))
 
 
+def _es_ip_real(texto: str) -> bool:
+    """True si el texto es una dirección fuera de los rangos de laboratorio o documentación."""
+    try:
+        ip = ipaddress.ip_address(texto)
+    except ValueError:
+        return False  # No confundir un valor inválido con una dirección real.
+    # Máscaras (255.255.255.0) y wildcards de OSPF/ACL (0.0.0.255) no son direcciones de equipos.
+    mascara = ip.version == 4 and re.fullmatch(r"1*0*|0*1*", f"{int(ip):032b}")
+    return not mascara and not ip.is_unspecified and not any(
+        ip.version == red.version and ip in red for red in _REDES_LAB
+    )
+
+
 def contiene_datos_sensibles(texto: str) -> bool:
     if _CREDENCIAL.search(texto or ""):
         return True
-    for coincidencia in _IP.finditer(texto or ""):
-        try:
-            ip = ipaddress.ip_address(coincidencia.group())
-        except ValueError:
-            continue  # No confundir un valor inválido con una dirección real.
-        mascara = ip.version == 4 and re.fullmatch(r"1*0*", f"{int(ip):032b}")
-        if not mascara and not ip.is_unspecified and not any(ip.version == red.version and ip in red for red in _REDES_LAB):
-            return True
-    return False
+    return any(_es_ip_real(coincidencia.group()) for coincidencia in _IP.finditer(texto or ""))
+
+
+def ocultar_datos_sensibles(texto: str) -> str:
+    """Sustituye valores de claves e IP reales por [oculto].
+
+    Se aplica a las respuestas del propio asistente antes de reenviarlas como historial: el modelo
+    a veces copia claves de ejemplo de las fichas (enable secret ClaveLab123) y, sin esto, toda la
+    conversación quedaba bloqueada después. Los mensajes del usuario se siguen bloqueando, no ocultando.
+    """
+    texto = _CREDENCIAL.sub(lambda m: re.sub(r"\S+$", OCULTO, m.group(0)), texto or "")
+    return _IP.sub(lambda m: OCULTO if _es_ip_real(m.group()) else m.group(), texto)
 
 
 def validar_historial(mensajes: list[dict]) -> None:

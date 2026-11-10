@@ -7,6 +7,13 @@
       "runtimeArgs": ["-m", "http.server", "5510", "--bind", "127.0.0.1", "--directory", "frontend"],
       "port": 5510,
       "autoPort": false
+    },
+    {
+      "name": "streamlit",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "streamlit", "run", "streamlit_app.py", "--server.port", "8511", "--server.headless", "true"],
+      "port": 8511,
+      "autoPort": false
     }
   ]
 }

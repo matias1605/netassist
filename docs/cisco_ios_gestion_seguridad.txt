@@ -1,0 +1,132 @@
+PROBLEMA: Configuración básica inicial de un switch o router
+SÍNTOMA: El equipo es nuevo o se reinició y no tiene nombre ni acceso protegido.
+CAUSA: Está con la configuración de fábrica.
+COMANDOS:
+configure terminal
+hostname SW1
+enable secret ClaveLab123
+service password-encryption
+banner motd # Uso exclusivo del laboratorio #
+end
+copy running-config startup-config
+VERIFICACIÓN: El prompt debe mostrar el nuevo nombre (SW1#). "show running-config" debe mostrar "enable secret" cifrado y no en texto claro.
+ADVERTENCIA: Usa contraseñas de laboratorio ficticias, nunca contraseñas reales. Escribe "copy running-config startup-config" para que los cambios sobrevivan a un reinicio.
+---
+PROBLEMA: Guardar y respaldar la configuración
+SÍNTOMA: Después de reiniciar el equipo se pierden los cambios hechos.
+CAUSA: La configuración activa (running-config) está en RAM y solo se conserva si se guarda en startup-config.
+COMANDOS:
+copy running-config startup-config
+show startup-config
+show running-config
+VERIFICACIÓN: "show startup-config" debe mostrar los cambios guardados. Compara ambas con "show running-config" para ver si hay diferencias sin guardar.
+ADVERTENCIA: Guardar una configuración errónea también la hace persistente. Respalda primero la versión que funcionaba (por ejemplo, copiándola a un servidor TFTP de laboratorio).
+---
+PROBLEMA: Habilitar acceso remoto SSH
+SÍNTOMA: Solo se puede administrar el equipo por consola, o Telnet envía las contraseñas sin cifrar.
+CAUSA: SSH no está habilitado: falta el nombre de dominio, las claves RSA, un usuario local o la configuración de las líneas VTY.
+COMANDOS:
+configure terminal
+hostname SW1
+ip domain-name lab.local
+crypto key generate rsa
+username admin secret ClaveLab123
+ip ssh version 2
+line vty 0 4
+transport input ssh
+login local
+end
+show ip ssh
+VERIFICACIÓN: "show ip ssh" debe indicar SSH habilitado en versión 2. Desde otra PC en la misma red, "ssh -l admin 192.168.1.2" debe pedir la contraseña.
+ADVERTENCIA: Necesitas una IP de administración alcanzable. Tener acceso por consola de respaldo evita quedarte fuera si algo falla. Usa credenciales ficticias de laboratorio.
+---
+PROBLEMA: Proteger el acceso por consola y modo privilegiado
+SÍNTOMA: Cualquiera puede entrar por consola o escalar al modo privilegiado sin contraseña.
+CAUSA: Las líneas de consola y el modo enable no tienen contraseña.
+COMANDOS:
+configure terminal
+line console 0
+password ClaveConsola1
+login
+exec-timeout 5 0
+exit
+enable secret ClaveLab123
+end
+VERIFICACIÓN: Al abrir una nueva sesión por consola el equipo debe pedir contraseña, y para entrar a "enable" también.
+ADVERTENCIA: Usa "enable secret" (cifrado) en lugar de "enable password". No escribas contraseñas reales en tus consultas.
+---
+PROBLEMA: Interfaz de administración de un switch en una VLAN distinta de la 1
+SÍNTOMA: Se necesita administrar el switch por una VLAN dedicada de gestión.
+CAUSA: La IP del switch está en la VLAN 1, que se recomienda no usar para administración.
+COMANDOS:
+configure terminal
+vlan 99
+name GESTION
+exit
+interface vlan 99
+ip address 192.168.99.2 255.255.255.0
+no shutdown
+exit
+ip default-gateway 192.168.99.1
+end
+show interfaces vlan 99
+VERIFICACIÓN: "show ip interface brief" debe mostrar Vlan99 en up/up con su IP. Debe haber al menos un puerto activo en la VLAN 99 para que la SVI suba.
+ADVERTENCIA: Mover la administración a otra VLAN puede cortar tu sesión remota. Hazlo con acceso por consola a mano.
+---
+PROBLEMA: Descubrir equipos vecinos con CDP
+SÍNTOMA: No se sabe a qué puerto o equipo está conectado un cable, o se quiere comprobar la topología física.
+CAUSA: CDP (Cisco Discovery Protocol) muestra los dispositivos Cisco conectados directamente si está habilitado.
+COMANDOS:
+show cdp neighbors
+show cdp neighbors detail
+VERIFICACIÓN: La salida debe listar el equipo vecino, su puerto local y remoto y el modelo. Si no aparece, el enlace está caído o CDP está desactivado.
+ADVERTENCIA: CDP expone información del equipo; en producción se desactiva en los puertos hacia usuarios con "no cdp enable".
+---
+PROBLEMA: Comandos de verificación más usados
+SÍNTOMA: Se necesita revisar el estado general de un equipo Cisco y no se sabe por dónde empezar.
+CAUSA: Cada comando "show" responde una pregunta distinta sobre el equipo.
+COMANDOS:
+show running-config
+show ip interface brief
+show interfaces status
+show vlan brief
+show interfaces trunk
+show ip route
+show version
+VERIFICACIÓN: "show ip interface brief" da el estado de las interfaces de capa 3; "show interfaces status" el de los puertos de un switch; "show vlan brief" las VLAN y sus puertos; "show interfaces trunk" los enlaces troncales; "show version" el modelo y la versión de IOS.
+ADVERTENCIA: Los comandos "show" no modifican el equipo; son seguros para diagnosticar, pero su salida puede contener datos sensibles: no pegues contraseñas ni datos reales.
+---
+PROBLEMA: Modos de la línea de comandos de Cisco IOS
+SÍNTOMA: Un comando de configuración responde "Invalid input" o no se encuentra.
+CAUSA: El comando se escribe en un modo distinto al que corresponde.
+COMANDOS:
+enable
+configure terminal
+interface gigabitethernet 0/1
+exit
+end
+VERIFICACIÓN: El prompt indica el modo: ">" modo usuario, "#" modo privilegiado, "(config)#" configuración global, "(config-if)#" configuración de interfaz, "(config-vlan)#" configuración de VLAN. "end" regresa al modo privilegiado.
+ADVERTENCIA: "?" lista los comandos válidos del modo actual y el Tabulador completa el comando.
+---
+PROBLEMA: Borrar la configuración de un equipo
+SÍNTOMA: Se quiere dejar el switch o router en estado de fábrica para empezar una práctica desde cero.
+CAUSA: El equipo conserva una configuración previa en startup-config.
+COMANDOS:
+erase startup-config
+delete vlan.dat
+reload
+VERIFICACIÓN: Tras reiniciar, el equipo debe iniciar con el asistente de configuración inicial y sin VLAN adicionales en "show vlan brief".
+ADVERTENCIA: Esto borra la configuración de forma irreversible y reinicia el equipo, cortando todo acceso. Hazlo solo en el laboratorio y respalda antes lo que quieras conservar.
+---
+PROBLEMA: Sincronizar la hora con NTP y registrar eventos
+SÍNTOMA: Los registros (logs) tienen horas incorrectas y es difícil seguir el orden de los eventos.
+CAUSA: El equipo no tiene la hora configurada ni un servidor NTP.
+COMANDOS:
+configure terminal
+ntp server 192.0.2.123
+service timestamps log datetime msec
+end
+show ntp status
+show clock
+VERIFICACIÓN: "show ntp status" debe indicar "Clock is synchronized". "show clock" debe mostrar la hora correcta.
+ADVERTENCIA: Usa un servidor NTP de laboratorio o una dirección de documentación; el equipo necesita alcanzarlo por la red.

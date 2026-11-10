@@ -7,3 +7,9 @@ textColor = "#1d2b3b"
 
 [server]
 maxUploadSize = 5
+runOnSave = true
+fileWatcherType = "auto"
+
+[client]
+# Oculta el botón "Deploy" de la barra superior para que no se cruce con el chat.
+toolbarMode = "minimal"

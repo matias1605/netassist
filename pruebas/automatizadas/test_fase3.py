@@ -286,60 +286,57 @@ class ApiCasosTests(unittest.TestCase):
 
 
 class StreamlitCasosTests(unittest.TestCase):
+    """Flujo actual del laboratorio: guardar la práctica abre el chat con el saludo de Nexo."""
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.ruta = str(Path(self.tmp.name) / "casos.db").replace("\\", "/")
 
-    def app(self):
+    def app(self, respuesta="Hola, soy Nexo. ¿Qué duda tienes?"):
         codigo = f'''
 import streamlit as st
 from backend.casos import AlmacenCasos
 from laboratorio_ui import mostrar_laboratorio
 class Cadena:
     async def ainvoke(self, entrada):
-        return "Explicación de SW1"
-class Rag:
-    def buscar(self, consulta):
-        return [{{"archivo": "cisco_ios_basico.txt", "texto": "x", "distancia": 0.1}}]
-mostrar_laboratorio(Cadena(), st.markdown, Rag(), AlmacenCasos("{self.ruta}"))
+        return {respuesta!r}
+mostrar_laboratorio(Cadena(), AlmacenCasos("{self.ruta}"))
 '''
         return AppTest.from_string(codigo, default_timeout=30).run()
 
-    def button(self, app, label):
-        return next(b for b in app.button if b.label == label)
+    def guardar(self, app):
+        next(b for b in app.button if b.key == "lab_guardar").click().run()
 
-    def test_reglas_bloquean_generar(self):
+    def test_reglas_bloquean_guardar(self):
         app = self.app()
         app.session_state["lab_filas"][0]["id"] = "4095"
         app.session_state["lab_editor_version"] += 1
         app.run()
-        self.button(app, "Revisar datos").click().run()
+        self.guardar(app)
         self.assertFalse(app.exception)
         self.assertIn("4095", app.error[0].value)
-        app.checkbox(key="lab_confirmado").check().run()
-        self.assertTrue(self.button(app, "Generar propuesta").disabled)
+        self.assertNotIn("practica", app.session_state)
+        self.assertEqual(AlmacenCasos(self.ruta).listar_casos(app.session_state["lab_usuario"]), [])
 
-    def test_generar_guarda_y_reabrir_recupera(self):
+    def test_guardar_practica_abre_chat_y_persiste(self):
         app = self.app()
-        self.button(app, "Revisar datos").click().run()
-        app.checkbox(key="lab_confirmado").check().run()
-        self.button(app, "Generar propuesta").click().run()
+        self.guardar(app)
         self.assertFalse(app.exception)
-        caso_id = app.session_state["lab_resultado"]["caso_id"]
-        usuario = app.session_state["lab_usuario"]
-        self.assertEqual(len(AlmacenCasos(self.ruta).listar_casos(usuario)), 1)
-        # Sesión nueva con la misma clave personal: el caso se reabre con datos y propuesta.
-        nueva = self.app()
-        nueva.session_state["lab_usuario"] = usuario
-        nueva.run()
-        nueva.session_state["lab_caso_sel"] = caso_id
-        nueva.text_input(key="lab_alias").set_value("OTRO").run()
-        self.button(nueva, "Reabrir caso").click().run()
-        self.assertFalse(nueva.exception)
-        self.assertEqual(nueva.text_input(key="lab_alias").value, "SW1")
-        self.assertEqual(nueva.session_state["lab_resultado"]["estado"], "reabierto")
-        self.assertIn("switchport access vlan 10", nueva.session_state["lab_resultado"]["texto"])
+        self.assertTrue(app.session_state["chat_abierto"])
+        saludo = app.session_state["mensajes"][0]
+        self.assertTrue(saludo["saludo"])
+        self.assertIn("Nexo", saludo["content"])
+        self.assertEqual(app.session_state["practica"]["equipo"]["alias"], "SW1")
+        self.assertEqual(len(AlmacenCasos(self.ruta).listar_casos(app.session_state["lab_usuario"])), 1)
+
+    def test_saludo_fijo_si_el_modelo_falla(self):
+        from backend.llm import MENSAJE_FALLBACK
+
+        app = self.app(MENSAJE_FALLBACK)
+        self.guardar(app)
+        self.assertFalse(app.exception)
+        self.assertIn("Ya tengo los datos de tu práctica", app.session_state["mensajes"][0]["content"])
 
 
 if __name__ == "__main__":

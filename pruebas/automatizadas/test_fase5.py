@@ -13,7 +13,7 @@ from backend import casos, main
 from backend.casos import AlmacenCasos, CasoNoEncontrado
 from backend.informes import generar_informe, nombre_archivo
 from backend.laboratorio import ejemplo_laboratorio
-from test_fase4 import SW_OK_1, SW_OK_2, VLAN_OK, VLAN_PUERTO_EN_DEFAULT
+from pruebas.automatizadas.test_fase4 import SW_OK_1, SW_OK_2, VLAN_OK, VLAN_PUERTO_EN_DEFAULT
 
 ANA = "ana-clave-de-prueba-0001"
 LUIS = "luis-clave-de-prueba-0002"
@@ -227,23 +227,26 @@ from laboratorio_ui import mostrar_laboratorio
 class Cadena:
     async def ainvoke(self, entrada):
         return "Explicación de SW1"
-mostrar_laboratorio(Cadena(), st.markdown, None, AlmacenCasos("{self.ruta}"))
+mostrar_laboratorio(Cadena(), AlmacenCasos("{self.ruta}"))
 '''
         return AppTest.from_string(codigo, default_timeout=30).run()
 
-    def test_la_clave_de_sesion_separa_casos_y_se_puede_reutilizar(self):
+    def test_clave_local_fija_y_separada_de_otros_usuarios(self):
+        """El laboratorio actual es de uso individual: guarda con una clave local fija."""
+        from laboratorio_ui import CLAVE_LOCAL
+
         almacen = AlmacenCasos(self.ruta)
         almacen.guardar_caso(ejemplo_laboratorio(), usuario=ANA)
         app = self.app()
         self.assertFalse(app.exception)
-        self.assertTrue(app.session_state["lab_usuario"])
-        self.assertNotEqual(app.session_state["lab_usuario"], ANA)
-        self.assertFalse(any(s.label == "Casos guardados" for s in app.selectbox))  # no ve los de Ana
-        app.text_input(key="lab_usuario").set_value(ANA).run()
-        self.assertTrue(any(s.label == "Casos guardados" for s in app.selectbox))
-        app.text_input(key="lab_usuario").set_value("corta").run()
+        self.assertEqual(app.session_state["lab_usuario"], CLAVE_LOCAL)
+        next(b for b in app.button if b.key == "lab_guardar").click().run()
         self.assertFalse(app.exception)
-        self.assertTrue(any("Clave" in e.value for e in app.error))
+        self.assertEqual(len(almacen.listar_casos(CLAVE_LOCAL)), 1)
+        self.assertEqual(len(almacen.listar_casos(ANA)), 1)  # los casos de Ana no se tocan
+        # Guardar otra vez la misma práctica actualiza el caso, no lo duplica.
+        next(b for b in app.button if b.key == "lab_guardar").click().run()
+        self.assertEqual(len(almacen.listar_casos(CLAVE_LOCAL)), 1)
 
 
 if __name__ == "__main__":

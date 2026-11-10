@@ -126,6 +126,8 @@ class ApiLaboratorioTests(unittest.TestCase):
 
 
 class StreamlitLaboratorioTests(unittest.TestCase):
+    """Laboratorio actual: ejemplos y datos faltantes antes de abrir el chat con Nexo."""
+
     def app(self):
         codigo = '''
 import streamlit as st
@@ -133,41 +135,35 @@ from laboratorio_ui import mostrar_laboratorio
 class Cadena:
     async def ainvoke(self, entrada):
         st.session_state.llamadas = st.session_state.get("llamadas", 0) + 1
-        return "Propuesta de SW1"
-mostrar_laboratorio(Cadena(), st.markdown)
+        return "Hola, soy Nexo"
+mostrar_laboratorio(Cadena())
 '''
         return AppTest.from_string(codigo, default_timeout=30).run()
 
-    def button(self, app, label):
-        return next(b for b in app.button if b.label == label)
+    def guardar(self, app):
+        next(b for b in app.button if b.key == "lab_guardar").click().run()
 
-    def test_revisar_confirmar_generar_y_editar_invalida(self):
+    def test_carga_ejemplos_y_guarda_sin_almacen(self):
         app = self.app()
         self.assertFalse(app.exception)
-        self.button(app, "Revisar datos").click().run()
-        self.assertFalse(app.exception)
-        self.assertTrue(self.button(app, "Generar propuesta").disabled)
-        app.checkbox(key="lab_confirmado").check().run()
-        self.button(app, "Generar propuesta").click().run()
+        next(b for b in app.button if b.key == "lab_ej_1").click().run()
+        self.assertEqual(app.text_input(key="lab_alias").value, "SW-AULAS")
+        self.assertEqual(len(app.session_state["lab_filas"]), 3)
+        self.guardar(app)
         self.assertFalse(app.exception)
         self.assertEqual(app.session_state["llamadas"], 1)
-        self.assertEqual(app.session_state["lab_resultado"]["estado"], "respuesta_generada")
-        app.text_input(key="lab_alias").set_value("SW_EDITADO").run()
-        self.assertIsNone(app.session_state["lab_revision"])
-        self.assertIsNone(app.session_state["lab_resultado"])
-        self.assertFalse(app.session_state["lab_confirmado"])
+        self.assertEqual(app.session_state["practica"]["equipo"]["alias"], "SW-AULAS")
 
-    def test_faltantes_descartar_y_recargar_ejemplo(self):
+    def test_sin_conexiones_no_abre_el_chat(self):
         app = self.app()
-        app.text_input(key="lab_modelo").set_value("").run()
-        self.button(app, "Revisar datos").click().run()
-        self.assertTrue(self.button(app, "Generar propuesta").disabled)
-        self.assertIn("Modelo", app.warning[0].value)
-        self.button(app, "Descartar revisión").click().run()
-        self.assertIsNone(app.session_state["lab_revision"])
-        self.button(app, "Cargar ejemplo de laboratorio").click().run()
-        self.assertEqual(app.text_input(key="lab_modelo").value, ejemplo_laboratorio()["equipo"]["modelo"])
+        app.session_state["lab_filas"] = []
+        app.session_state["lab_editor_version"] += 1
+        app.run()
+        self.guardar(app)
         self.assertFalse(app.exception)
+        self.assertIn("entre 1 y 16 conexiones", app.error[0].value)
+        self.assertNotIn("practica", app.session_state)
+        self.assertNotIn("llamadas", app.session_state)
 
 
 if __name__ == "__main__":

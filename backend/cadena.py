@@ -13,7 +13,7 @@ from langchain_core.retrievers import BaseRetriever
 from langchain_core.runnables import Runnable, RunnableBranch, RunnableLambda, RunnablePassthrough
 
 from .config import SUPPORT_CONTACT
-from .llm import generar_con_respaldo
+from .llm import MENSAJE_FALLBACK, generar_con_respaldo
 from .prompts import construir_prompt
 from .rag import RagService, formatear_contexto
 from .seguridad import MENSAJE_DATOS_SENSIBLES, contiene_datos_sensibles, validar_entrada
@@ -59,6 +59,19 @@ def _tiene_datos_sensibles(entrada: dict[str, Any]) -> bool:
 
 def crear_cadena(rag: RagService) -> Runnable:
     """Arma la cadena: bloqueo de datos sensibles, recuperación RAG y LLM con respaldo."""
+    return _armar_cadena(rag, detallada=False)
+
+
+def crear_cadena_detallada(rag: RagService) -> Runnable:
+    """Mismo proceso que `crear_cadena`, pero devuelve también cómo fue la consulta.
+
+    Salida: {"respuesta": str, "fuentes": [archivos usados], "fragmentos": int, "bloqueado": bool}.
+    La interfaz lo usa para mostrar las fichas consultadas y el estado del asistente.
+    """
+    return _armar_cadena(rag, detallada=True)
+
+
+def _armar_cadena(rag: RagService, detallada: bool) -> Runnable:
     recuperador_texto = FichasRetriever(rag=rag)
     recuperador_imagen = FichasRetriever(rag=rag, con_imagen=True)
 
@@ -78,14 +91,38 @@ def crear_cadena(rag: RagService) -> Runnable:
 
     generador = RunnableLambda(generar)
 
-    cadena_rag = (
+    def detalle(entrada: dict[str, Any]) -> dict[str, Any]:
+        respuesta = entrada["respuesta"]
+        # Bloqueo o fallo de ambos proveedores: no se usó ninguna ficha para responder.
+        if respuesta in (MENSAJE_DATOS_SENSIBLES, MENSAJE_FALLBACK):
+            return {
+                "respuesta": respuesta,
+                "fuentes": [],
+                "fragmentos": 0,
+                "bloqueado": respuesta == MENSAJE_DATOS_SENSIBLES,
+            }
+        documentos = entrada["documentos"]
+        fuentes = list(dict.fromkeys(str(doc.metadata["archivo"]) for doc in documentos))
+        return {
+            "respuesta": respuesta,
+            "fuentes": fuentes,
+            "fragmentos": len(documentos),
+            "bloqueado": False,
+        }
+
+    preparar = (
         RunnablePassthrough.assign(documentos=RunnableLambda(recuperar))
         | RunnablePassthrough.assign(system_prompt=RunnableLambda(armar_prompt))
-        | generador
     )
+    if detallada:
+        cadena_rag = preparar | RunnablePassthrough.assign(respuesta=generador) | RunnableLambda(detalle)
+        bloqueo = {"respuesta": MENSAJE_DATOS_SENSIBLES, "fuentes": [], "fragmentos": 0, "bloqueado": True}
+    else:
+        cadena_rag = preparar | generador
+        bloqueo = MENSAJE_DATOS_SENSIBLES
 
     # Los datos sensibles se bloquean antes de buscar o llamar a cualquier modelo.
     return RunnableLambda(validar_entrada) | RunnableBranch(
-        (RunnableLambda(_tiene_datos_sensibles), RunnableLambda(lambda _: MENSAJE_DATOS_SENSIBLES)),
+        (RunnableLambda(_tiene_datos_sensibles), RunnableLambda(lambda _: bloqueo)),
         cadena_rag,
     )

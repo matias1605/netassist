@@ -1,8 +1,11 @@
 """Carga de manuales, fragmentación, indexado y búsqueda semántica local."""
 
+import hashlib
 import logging
 import json
 import os
+import re
+import unicodedata
 from uuid import uuid4
 from filelock import FileLock
 from pathlib import Path
@@ -25,6 +28,46 @@ COLLECTION_NAME = "manuales_netassist"
 CHUNK_WORDS = 500
 CHUNK_OVERLAP = 50
 FICHA_SEPARATOR = "\n---\n"
+
+# Búsqueda híbrida (ver RagService.buscar).
+CANDIDATOS_POR_RESULTADO = 3  # se piden 3 candidatos por cada resultado devuelto
+PESO_LEXICO = 0.35  # cuánto pesa la coincidencia de términos frente a la similitud semántica
+MARGEN_RESCATE = 0.10  # distancia extra tolerada si el fragmento comparte muchos términos
+MINIMO_RESCATE = 0.5  # fracción mínima de términos de la consulta para rescatar un fragmento
+_PALABRAS_VACIAS = {
+    "que", "qué", "como", "cómo", "para", "por", "con", "los", "las", "del", "una", "uno", "unos",
+    "unas", "este", "esta", "esto", "ese", "esa", "mis", "tus", "sus", "hay", "son", "est", "mas",
+    "más", "pero", "cuando", "donde", "dónde", "cual", "cuál", "quiero", "puedo", "debo", "hacer",
+    "tengo", "dame", "explica", "explícame", "ayuda", "ayudame", "ayúdame", "sobre", "entre", "sin",
+    "the", "and", "for", "practica", "práctica", "mi", "consulta", "actual", "datos",
+}
+
+
+def _normalizar(texto: str) -> str:
+    """Minúsculas y sin tildes, para comparar términos de forma tolerante."""
+    descompuesto = unicodedata.normalize("NFKD", texto.lower())
+    return "".join(c for c in descompuesto if not unicodedata.combining(c))
+
+
+def terminos_clave(consulta: str) -> set[str]:
+    """Términos útiles de la consulta: comandos, interfaces y palabras técnicas (≥3 letras)."""
+    # Solo la consulta actual: el contexto previo diluiría los términos.
+    actual = consulta.rsplit("Consulta actual:", 1)[-1]
+    actual = actual.split("Datos de mi práctica", 1)[0]
+    vacias = {_normalizar(p) for p in _PALABRAS_VACIAS}
+    return {
+        termino
+        for termino in re.findall(r"[a-z0-9][a-z0-9/._-]{2,}", _normalizar(actual))
+        if termino not in vacias
+    }
+
+
+def coincidencia_lexica(terminos: set[str], documento: str) -> float:
+    """Fracción de los términos de la consulta que aparecen en el fragmento (0 a 1)."""
+    if not terminos:
+        return 0.0
+    texto = _normalizar(documento)
+    return sum(1 for termino in terminos if termino in texto) / len(terminos)
 
 
 def fragmentar_texto(texto: str, tamano: int = CHUNK_WORDS, solapamiento: int = CHUNK_OVERLAP) -> list[str]:
@@ -63,6 +106,16 @@ def _leer_archivo(ruta: Path) -> str:
     return "\n".join(paginas)
 
 
+def huella_documentos() -> str:
+    """Huella del contenido de docs/: si cambia, el índice persistente se reconstruye solo."""
+    resumen = hashlib.sha256()
+    for ruta in sorted(DOCS_DIR.rglob("*")):
+        if ruta.is_file() and ruta.suffix.lower() in {".txt", ".pdf"}:
+            resumen.update(ruta.relative_to(DOCS_DIR).as_posix().encode("utf-8"))
+            resumen.update(ruta.read_bytes())
+    return resumen.hexdigest()
+
+
 class RagService:
     """Mantiene el modelo de embeddings y la colección local de ChromaDB."""
 
@@ -88,19 +141,15 @@ class RagService:
             if not reconstruir:
                 if referencia.exists():
                     datos = json.loads(referencia.read_text(encoding="utf-8"))
-                    coleccion = self.cliente.get_collection(datos["coleccion"])
-                    if coleccion.count() < 1:
-                        raise RuntimeError("El índice activo está vacío.")
-                    self.coleccion = coleccion
-                    return datos["resumen"]
-                # Compatibilidad con el índice anterior sin reconstruirlo al arrancar.
-                try:
-                    anterior = self.cliente.get_collection(COLLECTION_NAME)
-                except Exception:
-                    anterior = None
-                if anterior is not None and anterior.count() > 0:
-                    self.coleccion = anterior
-                    return {"archivos": len(set((m or {}).get("archivo", "") for m in anterior.get(include=["metadatas"])["metadatas"])), "fragmentos": anterior.count()}
+                    if datos.get("huella") == huella_documentos():
+                        coleccion = self.cliente.get_collection(datos["coleccion"])
+                        if coleccion.count() < 1:
+                            raise RuntimeError("El índice activo está vacío.")
+                        self.coleccion = coleccion
+                        return datos["resumen"]
+                    logger.info("Los documentos cambiaron: se reconstruye el índice.")
+            # Sin referencia (índice antiguo) o con documentos nuevos: se reconstruye.
+            logger.info("Los documentos cambiaron o no hay índice activo: se reconstruye.")
             return self._reconstruir(referencia)
 
     def _reconstruir(self, referencia: Path) -> dict[str, int]:
@@ -139,7 +188,7 @@ class RagService:
             # Verifica también que se puede consultar antes de publicarla.
             candidata.query(query_embeddings=embeddings[:1], n_results=1, include=["documents"])
             resumen = {"archivos": len(archivos), "fragmentos": len(documentos)}
-            temporal.write_text(json.dumps({"coleccion": nombre, "resumen": resumen}), encoding="utf-8")
+            temporal.write_text(json.dumps({"coleccion": nombre, "resumen": resumen, "huella": huella_documentos()}), encoding="utf-8")
             os.replace(temporal, referencia)
         except Exception:
             temporal.unlink(missing_ok=True)
@@ -158,31 +207,55 @@ class RagService:
         return {"archivos": len(archivos), "fragmentos": len(documentos)}
 
     def buscar(self, consulta: str) -> list[dict[str, str | float]]:
-        """Devuelve hasta cuatro fragmentos que superen el umbral de relevancia."""
+        """Búsqueda híbrida: semántica (ChromaDB) reordenada con coincidencia de términos Cisco.
+
+        Mantiene el proceso original (embedding + umbral de distancia) y lo mejora:
+        - pide más candidatos de los que devuelve, para poder reordenarlos;
+        - premia los fragmentos que contienen los comandos o términos exactos de la consulta
+          (p. ej. «switchport», «show vlan brief»), algo que el embedding solo capta a medias;
+        - rescata un fragmento algo más lejano solo si comparte muchos términos técnicos;
+        - descarta fragmentos repetidos.
+        Devuelve como máximo RAG_TOP_K fragmentos, del más al menos útil.
+        """
         if self.modelo is None or self.coleccion is None:
             raise RuntimeError("El servicio RAG no está inicializado.")
-        if self.coleccion.count() == 0:
+        total = self.coleccion.count()
+        if total == 0:
             return []
 
         embedding = self.modelo.encode([consulta], normalize_embeddings=True).tolist()
         resultados = self.coleccion.query(
             query_embeddings=embedding,
-            n_results=min(RAG_TOP_K, self.coleccion.count()),
+            n_results=min(RAG_TOP_K * CANDIDATOS_POR_RESULTADO, total),
             include=["documents", "metadatas", "distances"],
         )
         documentos = resultados.get("documents", [[]])[0]
         metadatos = resultados.get("metadatas", [[]])[0]
         distancias = resultados.get("distances", [[]])[0]
-        relevantes: list[dict[str, str | float]] = []
+        terminos = terminos_clave(consulta)
+        candidatos: list[tuple[float, dict[str, str | float]]] = []
+        vistos: set[str] = set()
 
         for documento, metadata, distancia in zip(documentos, metadatos, distancias):
-            if documento is None or distancia is None or distancia > RAG_DISTANCE_THRESHOLD:
+            if documento is None or distancia is None:
                 continue
+            lexico = coincidencia_lexica(terminos, str(documento))
+            dentro = distancia <= RAG_DISTANCE_THRESHOLD
+            rescatado = distancia <= RAG_DISTANCE_THRESHOLD + MARGEN_RESCATE and lexico >= MINIMO_RESCATE
+            if not (dentro or rescatado):
+                continue
+            huella = " ".join(str(documento).split())[:300]
+            if huella in vistos:
+                continue
+            vistos.add(huella)
             archivo = str((metadata or {}).get("archivo", "manual sin nombre"))
-            relevantes.append(
-                {"texto": str(documento), "archivo": archivo, "distancia": float(distancia)}
+            puntaje = (1 - float(distancia)) + PESO_LEXICO * lexico
+            candidatos.append(
+                (puntaje, {"texto": str(documento), "archivo": archivo, "distancia": float(distancia)})
             )
-        return relevantes
+
+        candidatos.sort(key=lambda par: par[0], reverse=True)
+        return [fragmento for _, fragmento in candidatos[:RAG_TOP_K]]
 
     def buscar_con_imagen(self, consulta: str, maximo: int = 8) -> list[dict[str, str | float]]:
         """Recupera solo fichas relevantes al texto y contexto confirmado."""
